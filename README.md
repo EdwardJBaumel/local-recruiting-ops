@@ -28,30 +28,38 @@ Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (
 
 ## Get started
 
+**1. Clone**
+
 ```bash
 git clone https://github.com/edwardjbaumel/lantern.git
 cd lantern
 ```
 
-Pull a model based on your hardware:
+**2. Pull a model**
 
-| You have | Pull this | Disk | Notes |
-|---|---|---|---|
-| 6 GB VRAM or 8 GB unified (Mac M-series base) | `qwen3:4b` | ~2.5 GB | Fits alongside the 2.3 GB embedding model |
-| 8 GB VRAM dedicated or 16 GB+ unified | `qwen3:8b` | ~5 GB | Comfortable headroom |
-| 16 GB VRAM | `qwen3:8b` + `qwen3:14b` | ~14 GB | Best quality; 14b handles analysis and cover letters |
-| No GPU / CPU only | `qwen3:4b` | ~2.5 GB | Works, but expect ~60–90 min cycles |
+The embedding model (`bge-m3`) uses 2.3 GB VRAM on its own, so pick based on what's left:
+
+| VRAM | Model | Disk |
+|---|---|---|
+| 6 GB or 8 GB unified (Mac M1/M2 base) | `qwen3:4b` | ~2.5 GB |
+| 8 GB dedicated or 16 GB+ unified | `qwen3:8b` | ~5 GB |
+| 16 GB+ | `qwen3:8b` + `qwen3:14b` | ~14 GB — best quality |
+| No GPU | `qwen3:4b` | ~2.5 GB — works, slower cycles |
 
 ```bash
-ollama pull qwen3:4b     # or whichever row above matches your machine
+ollama pull qwen3:4b    # swap for whichever row fits your machine
 ```
 
-**Windows:** `.\start.ps1`  
-**macOS / Linux:** `./start.sh`
+**3. Launch**
 
-The launcher creates the venv, installs deps, builds the UI and opens the browser. First run takes ~10–20 min.
+Windows: `.\start.ps1`  
+macOS / Linux: `./start.sh`
 
-Then: **Settings → Resume** (upload CV) → **Run Pipeline**.
+The launcher handles everything — venv, deps, config, UI build, starting Ollama, opening the browser. **First run takes ~10–20 min.**
+
+**4. Upload your resume and run**
+
+Settings → Resume (upload CV) → click **Run Pipeline**.
 
 Full walkthrough: [SETUP.md](SETUP.md)
 
