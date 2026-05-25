@@ -1,0 +1,14 @@
+---
+description: Agent proceeds without blocking on user input
+alwaysApply: true
+---
+
+# Agent autonomy
+
+Never use AskQuestion or any blocking clarification UI. Do not pause to ask the user to choose between options.
+
+When information is missing or ambiguous, make a reasonable assumption, proceed with the work, and state assumptions briefly at the end if they mattered.
+
+Only stop for hard blockers you cannot resolve locally (missing credentials, destructive irreversible actions the user explicitly forbade elsewhere, or total inability to access required files/systems).
+
+Prefer action over permission. The user wants agents to run unattended.

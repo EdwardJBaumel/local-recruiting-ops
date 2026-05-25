@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui design tokens — dark theme. Values are the standard shadcn
+ * dark palette with our brand orange swapped in for the accent slot.
+ * Recruiter-friendly read: serious-product look, single mode, no
+ * theme-toggle ceremony.
+ *
+ * If you ever want to add a light mode later, the cleanest path is:
+ *   1. Move these values to `.dark { ... }`
+ *   2. Add a sibling `:root { ... }` block with the light palette
+ *   3. Re-enable `darkMode: ["class"]` in tailwind.config.js
+ *   4. Add a small Zustand-backed toggle that flips `<html>.classList`
+ *
+ * For now we deliberately ship a single mode so we don't pay the
+ * design-cost-per-feature tax on light + dark parity.
+ */
+@layer base {
+  :root {
+    --background: 222 14% 7%;          /* nearly black, faint blue-warm */
+    --foreground: 0 0% 95%;
+    --card: 222 13% 11%;               /* one notch lighter for elevation */
+    --card-foreground: 0 0% 95%;
+    --popover: 222 13% 11%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%;               /* primary buttons are near-white */
+    --primary-foreground: 222 14% 7%;
+    --secondary: 222 13% 16%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 222 13% 14%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 25 95% 55%;              /* Lantern brand orange */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 13% 18%;
+    --input: 222 13% 18%;
+    --ring: 25 95% 55%;                /* focus ring picks up the brand */
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* JD prose styles — applied to sanitized HTML rendered inside the
+ * MatchDetail panel. Without these, the dompurified JD comes through
+ * with no margins between paragraphs (browsers default <p> margin to
+ * 16px which Tailwind's preflight resets to 0). We restore enough
+ * spacing to make the JD readable, plus bullet list rendering. */
+@layer components {
+  .prose-jd p {
+    @apply mb-3;
+  }
+  .prose-jd p:last-child {
+    @apply mb-0;
+  }
+  .prose-jd h1,
+  .prose-jd h2,
+  .prose-jd h3,
+  .prose-jd h4 {
+    @apply font-semibold text-foreground mt-4 mb-2;
+  }
+  .prose-jd h3 {
+    @apply text-base;
+  }
+  .prose-jd h4 {
+    @apply text-sm;
+  }
+  .prose-jd ul {
+    @apply list-disc pl-5 mb-3 space-y-1;
+  }
+  .prose-jd ol {
+    @apply list-decimal pl-5 mb-3 space-y-1;
+  }
+  .prose-jd li {
+    @apply text-sm;
+  }
+  .prose-jd strong,
+  .prose-jd b {
+    @apply font-semibold text-foreground;
+  }
+  .prose-jd em,
+  .prose-jd i {
+    @apply italic;
+  }
+  .prose-jd hr {
+    @apply my-4 border-border;
+  }
+  .prose-jd code {
+    @apply bg-secondary px-1 py-0.5 rounded text-xs font-mono;
+  }
+}

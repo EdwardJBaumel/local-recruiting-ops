@@ -1,0 +1,2 @@
+-r sentinel/requirements.txt
+pytest>=8.0

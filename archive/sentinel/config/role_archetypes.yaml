@@ -1,0 +1,295 @@
+# ─────────────────────────────────────────────────────────────────
+# ROLE ARCHETYPE TAXONOMY
+# ─────────────────────────────────────────────────────────────────
+#
+# Maps each role archetype Sentinel understands to:
+#
+#   aliases  — title phrases that DO qualify (case-insensitive, matched
+#              as word boundaries). "pm" requires a boundary so it
+#              doesn't fire on "spm" or "vpm".
+#   exclude  — titles that look like the archetype but aren't.
+#              Applied only when NO targeted archetype claims the title.
+#
+# The matcher (core/role_archetypes.py → title_allowed) reads the
+# user's `target_archetypes` list from user.json and builds a union
+# allow-set and union deny-set. A job title is dropped pre-LLM if:
+#
+#   1. it matches ANY deny phrase, AND
+#   2. it matches NO allow phrase, AND
+#   3. the user has at least one target archetype configured.
+#
+# Rationale: saves LLM cost (free pre-filter) and kills the "Engineering
+# Program Manager came up in my Product Manager search" class of noise.
+#
+# Adding a new archetype is cheap — just add a top-level key below.
+# Users can override with their own user.json field
+# `role_archetypes_override`, which the loader merges on top.
+# ─────────────────────────────────────────────────────────────────
+
+archetypes:
+
+  # ---------- PRODUCT ----------
+  product_manager:
+    aliases:
+      - "product manager"
+      - "senior product manager"
+      - "group product manager"
+      - "principal product manager"
+      - "staff product manager"
+      - "lead product manager"
+      - "director of product"
+      - "head of product"
+      - "vp product"
+      - "vp of product"
+      - "gpm"
+      - "spm"
+      - "ppm"
+      - " pm"
+      - "pm,"
+    exclude:
+      - "engineering program manager"
+      - "technical program manager"
+      - "research program manager"
+      - "program manager"
+      - "project manager"
+      - "engineering manager"
+      - "product marketing manager"
+      - "product marketing"
+      - "pmm"
+
+  product_marketing_manager:
+    aliases:
+      - "product marketing manager"
+      - "product marketing"
+      - "senior product marketing"
+      - "director of product marketing"
+      - "head of product marketing"
+      - "pmm"
+    exclude:
+      - "product manager"
+
+  # ---------- PROGRAM / PROJECT ----------
+  technical_program_manager:
+    aliases:
+      - "technical program manager"
+      - "senior technical program manager"
+      - "principal technical program manager"
+      - "tpm"
+    exclude:
+      - "product manager"
+      - "engineering manager"
+
+  engineering_program_manager:
+    aliases:
+      - "engineering program manager"
+      - "epm"
+    exclude:
+      - "product manager"
+      - "technical program manager"
+
+  # ---------- DESIGN ----------
+  product_designer:
+    aliases:
+      - "product designer"
+      - "senior product designer"
+      - "staff product designer"
+      - "ux designer"
+      - "ui designer"
+      - "ux/ui designer"
+      - "interaction designer"
+    exclude:
+      - "graphic designer"
+      - "motion designer"
+      - "design manager"
+      - "visual designer"
+      - "brand designer"
+      - "creative director"
+
+  design_manager:
+    aliases:
+      - "design manager"
+      - "head of design"
+      - "director of design"
+      - "vp design"
+    exclude:
+      - "product designer"
+      - "graphic designer"
+
+  ux_researcher:
+    aliases:
+      - "ux researcher"
+      - "user researcher"
+      - "design researcher"
+      - "senior ux researcher"
+    exclude:
+      - "market researcher"
+      - "product analyst"
+      - "research scientist"
+
+  # ---------- ENGINEERING ----------
+  software_engineer:
+    aliases:
+      - "software engineer"
+      - "senior software engineer"
+      - "staff software engineer"
+      - "principal software engineer"
+      - "swe"
+      - "backend engineer"
+      - "back-end engineer"
+      - "frontend engineer"
+      - "front-end engineer"
+      - "full stack engineer"
+      - "fullstack engineer"
+      - "ios engineer"
+      - "android engineer"
+      - "mobile engineer"
+      - "web engineer"
+    exclude:
+      - "engineering manager"
+      - "engineering program manager"
+      - "technical program manager"
+      - "devrel"
+      - "developer advocate"
+      - "solutions engineer"
+      - "sales engineer"
+      - "support engineer"
+      - "qa engineer"
+      - "test engineer"
+
+  engineering_manager:
+    aliases:
+      - "engineering manager"
+      - "senior engineering manager"
+      - "director of engineering"
+      - "head of engineering"
+      - "vp engineering"
+      - "vp of engineering"
+    exclude:
+      - "engineering program manager"
+      - "software engineer"
+
+  ml_engineer:
+    aliases:
+      - "ml engineer"
+      - "machine learning engineer"
+      - "applied scientist"
+      - "research engineer"
+      - "ai engineer"
+    exclude:
+      - "data analyst"
+      - "bi analyst"
+      - "data engineer"
+
+  data_scientist:
+    aliases:
+      - "data scientist"
+      - "senior data scientist"
+      - "staff data scientist"
+      - "applied data scientist"
+    exclude:
+      - "data analyst"
+      - "data engineer"
+      - "bi analyst"
+
+  data_engineer:
+    aliases:
+      - "data engineer"
+      - "senior data engineer"
+      - "analytics engineer"
+    exclude:
+      - "data scientist"
+      - "data analyst"
+
+  devops_engineer:
+    aliases:
+      - "devops engineer"
+      - "site reliability engineer"
+      - "sre"
+      - "platform engineer"
+      - "infrastructure engineer"
+    exclude:
+      - "software engineer"
+
+  # ---------- ARCHITECTURE ----------
+  solutions_architect:
+    aliases:
+      - "solutions architect"
+      - "enterprise architect"
+      - "cloud architect"
+      - "technical architect"
+    exclude:
+      - "software architect"
+      - "information architect"
+      - "data architect"
+
+  software_architect:
+    aliases:
+      - "software architect"
+      - "principal architect"
+      - "chief architect"
+    exclude:
+      - "solutions architect"
+      - "enterprise architect"
+
+  # ---------- CONSULTING ----------
+  management_consultant:
+    aliases:
+      # Prefixed consultant titles only. Bare "consultant" is too
+      # permissive — it matched "IT Consultant" / "Sales Consultant"
+      # before we could deny them. Require a discipline prefix.
+      - "management consultant"
+      - "strategy consultant"
+      - "business consultant"
+      - "associate consultant"
+      - "senior consultant"
+      - "principal consultant"
+      - "lead consultant"
+      - "engagement manager"
+    exclude:
+      - "it consultant"
+      - "sales consultant"
+      - "recruitment consultant"
+      - "hr consultant"
+      - "tax consultant"
+      - "security consultant"
+      - "financial consultant"
+
+  # ---------- OPS ----------
+  business_operations:
+    aliases:
+      - "business operations"
+      - "biz ops"
+      - "strategy and operations"
+      - "strategy & operations"
+      - "operations manager"
+      - "revops"
+      - "rev ops"
+      - "sales ops"
+      - "chief of staff"
+    exclude:
+      - "warehouse operations"
+      - "field operations"
+      - "operations analyst"
+      - "retail operations"
+      - "it operations"
+
+  # ---------- MARKETING / GROWTH ----------
+  growth_manager:
+    aliases:
+      - "growth manager"
+      - "growth marketing manager"
+      - "head of growth"
+      - "director of growth"
+    exclude:
+      - "product manager"
+      - "growth engineer"
+
+  # ---------- SALES ----------
+  account_executive:
+    aliases:
+      - "account executive"
+      - "senior account executive"
+      - "enterprise account executive"
+    exclude:
+      - "account manager"
+      - "customer success"

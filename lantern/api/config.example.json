@@ -1,0 +1,150 @@
+{
+  "_comment": "Default Lantern config. Copied to config.json on first run by start.ps1 / start.sh. Edit config.json (not this file) for personal tweaks — pulling repo updates won't overwrite your local config.",
+
+  "_advanced_comment": "Everything in this _advanced block is dormant by default. The headline use case (run a cycle from the dashboard, browse matches) doesn't need any of it. Touch only if you want auto-cycling (pipeline.auto_start), digest delivery (discord_webhook / email), or a different cycle cadence.",
+  "_advanced": {
+    "cycle_interval_minutes": 30,
+    "max_cycles": 0,
+    "digest_every_n_cycles": 6,
+    "discord_webhook": "",
+    "email": {
+      "smtp_user": "",
+      "smtp_pass": "",
+      "smtp_host": "smtp.gmail.com",
+      "smtp_port": 587,
+      "to": ""
+    }
+  },
+  "_legacy_top_level_comment": "These same keys live at the top level for back-compat with code that reads them directly. The _advanced block above is the documented surface; the duplicates here are read by digest.py / orchestrator until everything migrates.",
+  "cycle_interval_minutes": 30,
+  "max_cycles": 0,
+  "digest_every_n_cycles": 6,
+  "discord_webhook": "",
+  "email": {
+    "smtp_user": "",
+    "smtp_pass": "",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "to": ""
+  },
+
+  "ingest": {
+    "delay_range": [1, 3],
+    "_comment_keywords": "Substring filter applied to every job title post-fetch, AND the query list for keyword-aware scrapers (Amazon, Google). Senior-leaning keywords (head of / director of / vp / group product manager) are intentionally OUT — the title-trapdoor at _matches() drops them anyway for sub-8-yoe profiles, and querying for them wastes bandwidth. 'tpm' and 'ai pm' are added as bare substrings to catch titles that abbreviate (e.g. 'Senior TPM, Cloud' or 'AI PM, Recommendations'). 'product manager' already substring-catches Senior/Group/Principal/Staff PM titles.",
+    "role_keywords": [
+      "product manager",
+      "product management",
+      "technical program manager",
+      "tpm",
+      "ai pm"
+    ],
+    "_comment_tenants": "ATS tenant lists. Greenhouse + Lever take just the company slug; Ashby takes [DisplayName, slug] pairs. Add or remove freely — there's no central registry, so coverage is whatever you curate.",
+    "greenhouse_companies": [
+      "affirm", "airbnb", "airtable", "asana", "brex", "carta",
+      "chime", "circleci", "cloudflare", "cockroachlabs", "coinbase",
+      "coreweave", "databricks", "datadog", "discord", "dropbox",
+      "duolingo", "elastic", "faire", "figma", "fivetran", "flexport",
+      "gitlab", "gusto", "instacart", "lyft",
+      "mercury", "mongodb", "nextdoor", "okta", "pinterest",
+      "reddit", "robinhood", "roblox", "samsara", "scaleai", "sofi",
+      "stripe", "twilio", "twitch"
+    ],
+    "lever_companies": ["palantir", "spotify"],
+    "ashby_companies": [
+      ["Character.AI", "character"],
+      ["Cursor", "cursor"],
+      ["Deel", "deel"],
+      ["Harvey", "harvey"],
+      ["Linear", "linear"],
+      ["Modal", "modal"],
+      ["OpenAI", "openai"],
+      ["Perplexity", "perplexity"],
+      ["Pika", "pika"],
+      ["PostHog", "posthog"],
+      ["Ramp", "ramp"],
+      ["Replit", "replit"],
+      ["Retool", "retool"],
+      ["Runway", "runway"],
+      ["Supabase", "supabase"],
+      ["Vercel", "vercel"]
+    ],
+    "_comment_bespoke": "Per-source toggles for the bespoke / Workday scrapers. Default ON for sources we've verified are returning data; default OFF for sources whose endpoints have drifted (request schema changed or tenant slug renamed). Flip any to true/false to suit.",
+    "enable_amazon": true,
+    "enable_google": true,
+    "enable_nvidia": true,
+    "enable_adobe": true,
+    "enable_intel": true
+  },
+
+  "parse": {
+    "_comment_model": "Parse is mechanical extraction (title / company / location / salary band / yoe). qwen3:8b is ~3x faster than the 14B and the field-level accuracy difference is in the noise on real JD copy.",
+    "model": "qwen3:8b"
+  },
+  "match": {
+    "model": "qwen3:14b",
+    "threshold": 0.4,
+    "embed_model": "BAAI/bge-m3",
+    "tiers": {
+      "_comment": "bge-m3 cross-domain cosine sim usually sits in 0.28-0.45. The match bar at 0.32 keeps 'any PM role worth a look' flowing through; 0.22 maybe-tier catches weaker signal without drowning the UI.",
+      "embed": { "match": 0.32, "maybe": 0.22 },
+      "llm":   { "match": 0.42, "maybe": 0.32 }
+    },
+    "_comment_profile": "profile_text is auto-populated when you upload a resume on the Settings tab. Leave empty here.",
+    "profile_text": ""
+  },
+  "analyze": {
+    "_comment_model": "qwen3:14b — shares VRAM resident with match-LLM-fallback + digest + cover-letter, so Ollama doesn't swap between tasks. qwen3:14b is on top of the 14B leaderboard for reasoning (MMLU 76.8, GSM8K 88.4, HumanEval 74.5). Drop to qwen3:8b if you have <12 GB VRAM.",
+    "_comment_top_n": "Top-N by match score get a fit/gap LLM call. 5 is enough for the SkillGap aggregation; bump to 10 if you want richer per-row analysis at ~2x the analyze wall time.",
+    "top_n": 5,
+    "model": "qwen3:14b"
+  },
+  "digest": {
+    "_comment_model": "Shares qwen3:14b VRAM with analyze. Was gemma3:12b.",
+    "model": "qwen3:14b"
+  },
+  "cover_letter": {
+    "_comment_model": "qwen3:14b. Was qwen3:30b-a3b (MoE, ~20 GB at q4) which partially spills to CPU on a 16 GB GPU. 14b fits entirely on GPU and is more than enough for a 4-paragraph cover letter.",
+    "model": "qwen3:14b"
+  },
+
+  "preferences": {
+    "_comment_locations": "ALL location preferences are personal and start empty. Use the Settings → Location section to drop pins on a map of your home metros, then save. The pin coords are written here.",
+    "work_modes": ["remote", "hybrid", "onsite"],
+    "allowed_locations": [],
+    "blocked_locations": [],
+    "location_mode": "soft",
+    "location_weight": 0.06,
+    "allowed_countries": ["US"],
+    "country_mode": "hard",
+    "allow_remote_any_country": true,
+    "strict_unknown_country": true,
+    "salary_floor_usd": 0,
+    "salary_weight": 0.08,
+    "years_experience": 0,
+    "current_level": "",
+    "years_weight": 0.04,
+    "max_level_gap": 3,
+    "trapdoor_enabled": true,
+    "_comment_freshness": "Per company-size tier. Mega = Amazon/Google/Workday; Large = Stripe/Databricks/OpenAI; Growth = everything else. See lantern/ui/src/lib/companyTier.ts for the membership lists.",
+    "freshness_window_mega_days": 30,
+    "freshness_window_large_days": 14,
+    "freshness_window_growth_days": 7
+  },
+
+  "fake_detection": {
+    "aggressiveness": "balanced",
+    "ghost_weight": 0.35,
+    "flag_threshold": 0.45,
+    "warn_threshold": 0.3
+  },
+
+  "logging": {
+    "level": "INFO",
+    "file": "logs/lantern.log"
+  },
+
+  "pipeline": {
+    "_comment": "auto_start=false means cycles ONLY run when you click Run Pipeline in the dashboard. Set to true to also fire every cycle_interval_minutes — useful for headless / overnight runs.",
+    "auto_start": false
+  }
+}
