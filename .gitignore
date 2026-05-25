@@ -1,4 +1,7 @@
 # ─── Personal / sensitive data ────────────────────────────────────────
+# Local resume/LinkedIn drafts — not for the public repo.
+docs/resume-bullets.md
+docs/cursor-models.md
 # The data/ folder under each backend instance holds PII:
 #   - match_registry.json  : every job you've matched (your search history)
 #   - decision_log.json    : every job you starred / passed
