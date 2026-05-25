@@ -41,10 +41,10 @@ The embedding model (`bge-m3`) uses 2.3 GB VRAM on its own, so pick based on wha
 
 | VRAM | Model | Disk |
 |---|---|---|
-| 6 GB or 8 GB unified (Mac M1/M2 base) | `qwen3:4b` | ~2.5 GB |
-| 8 GB dedicated or 16 GB+ unified | `qwen3:8b` | ~5 GB |
-| 16 GB+ | `qwen3:8b` + `qwen3:14b` | ~14 GB — best quality |
-| No GPU | `qwen3:4b` | ~2.5 GB — works, slower cycles |
+| No GPU | `qwen3:4b` | 2.5 GB — works, slower cycles |
+| 6 GB or 8 GB unified (Mac M1/M2 base) | `qwen3:4b` | 2.5 GB |
+| 8 GB dedicated or 16 GB+ unified | `qwen3:8b` | 5 GB |
+| 16 GB+ | `qwen3:8b` + `qwen3:14b` |~14 GB — best quality |
 
 ```bash
 ollama pull qwen3:4b    # swap for whichever row fits your machine
