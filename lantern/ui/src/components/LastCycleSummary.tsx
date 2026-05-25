@@ -2,13 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useStatus } from "@/hooks/useStatus";
 import type { LastCycleStats } from "@/types/status";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 /**
- * Brief-tab synthesis of per-cycle pipeline outputs.
+ * Brief-tab summary of the last pipeline run.
  *
- * On disk: match_registry.json (live union), matches/cycle_*.json
- * (per-run history), cycle_times.json (funnel), market_intel.json.
+ * These counts are not one strict funnel — "matched" is scored against your
+ * profile, "new" is first-seen in the registry, "analysed" is top-N LLM
+ * fit/gap. We label them plainly instead of chaining arrows that imply
+ * every step should shrink.
  */
 export function LastCycleSummary() {
   const status = useStatus();
@@ -24,26 +26,27 @@ export function LastCycleSummary() {
         ingested: num(liveCounts.ingested) ?? last?.ingested,
         parsed: num(liveCounts.parsed) ?? last?.parsed,
         qa_pass: num(liveCounts.qa_pass) ?? last?.qa_pass,
+        fake_blocked: num(liveCounts.fake_blocked) ?? last?.fake_blocked,
         new_jobs: num(liveCounts.new_jobs) ?? last?.new_jobs,
         matches: num(liveCounts.matches) ?? last?.matches,
         fit_gaps: num(liveCounts.fit_gaps) ?? last?.fit_gaps,
       }
     : last ?? null;
 
-  const steps = buildFunnelSteps(stats);
+  const rows = buildSummaryRows(stats);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base">Last cycle funnel</CardTitle>
+            <CardTitle className="text-base">Last cycle</CardTitle>
             <CardDescription>
               {inProgress
                 ? "Live counts while the pipeline runs"
                 : stats?.cycle != null
-                  ? `Cycle #${stats.cycle} · synthesised from cycle stats (registry is canonical for matches)`
-                  : "Run a cycle to see ingest → match funnel"}
+                  ? `Cycle #${stats.cycle} · what changed on the last run`
+                  : "Run a cycle to see fetch → match → analyse counts"}
             </CardDescription>
           </div>
           {inProgress && (
@@ -55,18 +58,23 @@ export function LastCycleSummary() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {steps.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            {steps.map((step, i) => (
-              <span key={step.label} className="flex items-center gap-2">
-                {i > 0 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                <span className="rounded-md border bg-muted/40 px-2.5 py-1.5">
-                  <span className="text-muted-foreground text-xs uppercase tracking-wide">{step.label}</span>
-                  <span className="ml-2 font-mono tabular-nums font-semibold">{step.value}</span>
-                </span>
-              </span>
+        {rows.length > 0 ? (
+          <dl className="grid gap-2 sm:grid-cols-2">
+            {rows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-baseline justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <dt className="text-sm font-medium">{row.label}</dt>
+                  {row.hint && (
+                    <dd className="text-[11px] text-muted-foreground leading-snug mt-0.5">{row.hint}</dd>
+                  )}
+                </div>
+                <dd className="font-mono tabular-nums text-lg font-semibold shrink-0">{row.value}</dd>
+              </div>
             ))}
-          </div>
+          </dl>
         ) : (
           <p className="text-sm text-muted-foreground">No cycle data yet.</p>
         )}
@@ -89,21 +97,57 @@ export function LastCycleSummary() {
   );
 }
 
-function buildFunnelSteps(stats: LastCycleStats | null | undefined) {
+interface SummaryRow {
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+function buildSummaryRows(stats: LastCycleStats | null | undefined): SummaryRow[] {
   if (!stats) return [];
-  const rows: { label: string; value: string }[] = [
-    { label: "Ingested", value: fmt(stats.ingested) },
-    { label: "Parsed", value: fmt(stats.parsed) },
-    { label: "QA pass", value: fmt(stats.qa_pass) },
+
+  const rows: SummaryRow[] = [
+    {
+      label: "Fetched",
+      value: fmt(stats.ingested),
+      hint: "Postings pulled from configured sources",
+    },
   ];
+
   if ((stats.fake_blocked ?? 0) > 0) {
-    rows.push({ label: "Fake blocked", value: fmt(stats.fake_blocked) });
+    rows.push({
+      label: "Ghosts removed",
+      value: fmt(stats.fake_blocked),
+      hint: "Likely fake or stale listings dropped",
+    });
   }
+
+  if ((stats.qa_fail ?? 0) > 0) {
+    rows.push({
+      label: "Failed QA",
+      value: fmt(stats.qa_fail),
+      hint: "Malformed cards rejected before scoring",
+    });
+  }
+
   rows.push(
-    { label: "New jobs", value: fmt(stats.new_jobs) },
-    { label: "Matches", value: fmt(stats.matches) },
-    { label: "Fit gaps", value: fmt(stats.fit_gaps) },
+    {
+      label: "Matched your profile",
+      value: fmt(stats.matches),
+      hint: "Passed your score threshold this run",
+    },
+    {
+      label: "New listings",
+      value: fmt(stats.new_jobs),
+      hint: "First time seen in your registry",
+    },
+    {
+      label: "Top matches analysed",
+      value: fmt(stats.fit_gaps),
+      hint: "LLM fit/gap breakdown on your highest-scoring roles",
+    },
   );
+
   return rows;
 }
 
