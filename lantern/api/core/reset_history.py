@@ -67,10 +67,10 @@ logger = logging.getLogger("lantern.reset_history")
 # place that knows what "reset" means.
 # -----------------------------------------------------------------------------
 RESET_DIRS: tuple[str, ...] = (
-    "matches",          # per-cycle match snapshots
-    "fit_gaps",         # per-cycle fit-gap analyses
-    "parsed",           # per-cycle parsed job dumps
-    "digests",          # saved weekly digests
+    "matches",          # per-cycle match history snapshots
+    "fit_gaps",         # legacy fit-gap dumps (no longer written)
+    "parsed",           # legacy parsed job dumps (no longer written)
+    "digests",          # saved weekly digests (still written when digest runs)
 )
 
 RESET_FILES: tuple[str, ...] = (
@@ -79,7 +79,8 @@ RESET_FILES: tuple[str, ...] = (
     "match_registry.json",  # cross-cycle match history
     "match_stats.json",     # aggregate stats
     "cycle_times.json",     # cycle timing history
-    "dashboard.json",       # current snapshot (regenerates next cycle)
+    "dashboard.json",       # removed export; legacy file only
+    "fake_jobs.json",       # legacy fake-detector audit log
     "ingest_sources.json",  # per-source stats
     "market_intel.json",    # market intel cache
     "dead_slugs.json",      # dead-job slug list

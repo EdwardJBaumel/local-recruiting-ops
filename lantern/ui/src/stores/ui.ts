@@ -9,7 +9,7 @@ import { persist } from "zustand/middleware";
  * `persist` keeps `currentTab` and table filters across reloads so a
  * dashboard refresh doesn't yank you back to Brief.
  */
-type Tab = "brief" | "matches" | "settings";
+type Tab = "brief" | "matches" | "history" | "settings";
 
 export type SortKey = "score" | "company" | "role" | "posted" | "ghost" | "location";
 

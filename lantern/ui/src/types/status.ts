@@ -1,3 +1,22 @@
+/** Per-cycle funnel stats returned on /api/status.last_cycle. */
+export interface LastCycleStats {
+  cycle?: number;
+  mode?: string;
+  tiers?: string[];
+  ingested?: number;
+  parsed?: number;
+  qa_pass?: number;
+  qa_fail?: number;
+  fake_blocked?: number;
+  new_jobs?: number;
+  matches?: number;
+  fit_gaps?: number;
+  resumes?: number;
+  ingest_seconds?: number;
+  pipeline_seconds?: number;
+  duration_seconds?: number;
+}
+
 /** Mirrors GET /api/status response shape. Only fields the UI consumes. */
 export interface StatusResponse {
   status: string;
@@ -11,6 +30,7 @@ export interface StatusResponse {
   avg_cycle_seconds: number | null;
   setup_completed: boolean;
   last_cycle_ts: string | null;
+  last_cycle: LastCycleStats | null;
   models?: {
     parse?: string;
     match?: string;

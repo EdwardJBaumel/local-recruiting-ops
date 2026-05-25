@@ -91,15 +91,20 @@ def load(data_dir: Path) -> dict:
 def _detect_pre_wizard_state(data_dir: Path) -> bool:
     """Heuristic: returns True if this data dir was in active use before
     user.json existed. Checked on first load() so legacy users aren't
-    gated out. Signals (any one):
+    gated out.     Signals (any one):
       - data/resume/resume.txt or similar present
       - config.json at project root mentions profile_text non-empty
       - data/matches/ has at least one cycle file
+      - data/match_registry.json or data/cycle_times.json present
     """
     d = Path(data_dir)
     if (d / "resume").is_dir() and any((d / "resume").iterdir()):
         return True
     if (d / "matches").is_dir() and any((d / "matches").glob("*.json")):
+        return True
+    if (d / "match_registry.json").is_file():
+        return True
+    if (d / "cycle_times.json").is_file():
         return True
     try:
         root_cfg = (d.parent / "config.json")

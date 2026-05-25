@@ -27,7 +27,7 @@ Install these once. Lantern won't run without them.
 ## 2. Pull the repo
 
 ```bash
-git clone https://github.com/<your-username>/lantern.git
+git clone https://github.com/edwardjbaumel/lantern.git
 cd lantern
 ```
 
@@ -164,19 +164,20 @@ No Python venv found — bootstrapping one (first-run setup)...
 Installing Python dependencies (this takes ~2 min the first time)...
 No config.json found — seeding from config.example.json (first-run setup)...
 Installing dashboard dependencies (one-time)...
+Building dashboard for single-port mode (:8099)...
 
   Lantern launcher
   - Python : C:\Users\you\lantern\venv\Scripts\python.exe
   - API dir: C:\Users\you\lantern\lantern\api
   - UI dir : C:\Users\you\lantern\lantern\ui
-  - Backend: http://127.0.0.1:8099
-  - Dash   : http://127.0.0.1:3000
+  - App    : http://127.0.0.1:8099
 
 Ollama already running on :11434
-Opening dashboard at http://127.0.0.1:3000/#launch=...
+Lantern is ready.
+  Dashboard:  http://127.0.0.1:8099/#launch=...
 ```
 
-Your default browser should open `http://127.0.0.1:3000` and you should see the Lantern dashboard with the **Brief** tab selected and the orange "Run Pipeline" button in the header.
+Your default browser should open `http://127.0.0.1:8099` and you should see the Lantern dashboard with the **Brief** tab selected and the orange "Run Pipeline" button in the header.
 
 If you see a destructive-coloured banner saying *"Backend not reachable on localhost:8099"*, the Python process didn't start — check the launcher window for the Python error, then see [TROUBLESHOOTING → Backend not reachable](TROUBLESHOOTING.md#backend-not-reachable).
 

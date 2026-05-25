@@ -47,9 +47,9 @@ def runtime_dir() -> Path:
 def static_dir() -> Path:
     """Location of the built React UI (lantern/ui/dist)."""
     # When frozen, the build script adds 'ui' under bundle_dir(). In
-    # dev there's no static dir at all — the Vite dev server on :3000
-    # handles UI traffic directly. The b/"ui" candidate covers the
-    # frozen case; the legacy sentinel-ui paths are gone with v1.
+    # local single-port mode, start.ps1 builds lantern/ui/dist and the
+    # backend serves it directly on :8099. The b/"ui" candidate covers
+    # the frozen case; the legacy sentinel-ui paths are gone with v1.
     b = bundle_dir()
     candidates = [b / "ui", b / ".." / "ui" / "dist"]
     for c in candidates:

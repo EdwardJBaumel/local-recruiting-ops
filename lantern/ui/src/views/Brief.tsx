@@ -7,6 +7,7 @@ import { useMarket } from "@/hooks/useMarket";
 import { useConfig } from "@/hooks/useConfig";
 import { SourceHealth } from "@/components/SourceHealth";
 import { SkillGap } from "@/components/SkillGap";
+import { LastCycleSummary } from "@/components/LastCycleSummary";
 import type { MatchPayload } from "@/types/match";
 import type { GhostRatePoint, SalaryBucket } from "@/components/BriefCharts";
 
@@ -103,6 +104,7 @@ export function Brief() {
   return (
     <div className="space-y-6">
       <MetricStrip />
+      <LastCycleSummary />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">

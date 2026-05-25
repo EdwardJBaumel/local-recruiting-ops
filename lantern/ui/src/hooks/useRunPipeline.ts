@@ -1,5 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import type { StatusResponse } from "@/types/status";
 
 interface RunResponse {
   ok: boolean;
@@ -16,17 +17,43 @@ interface RunResponse {
  * returned 409 ("cycle already in progress") the button looked stuck
  * with zero feedback. With useMutation, the .error and .data values
  * are first-class — the calling component reads them and renders.
+ *
+ * Optimistic status: mutation success clears isPending before the next
+ * /api/status poll arrives, which used to flash "Run Pipeline" for one
+ * frame. We set cycle_in_progress=true in the cache immediately.
  */
 export function useRunPipeline() {
-  return useMutation<RunResponse, Error, void>({
+  const qc = useQueryClient();
+
+  return useMutation<RunResponse, Error, void, { prev?: StatusResponse }>({
     mutationFn: async () => {
       const data = await api.post<RunResponse>("/run-cycle");
-      // 200 OK with ok:false is the "rejected for business reasons"
-      // case (cycle already running, setup not complete). Promote
-      // it to a thrown error so the UI's error path renders.
       if (!data.ok) throw new Error(data.error ?? "Pipeline rejected");
       return data;
     },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["status"] });
+      const prev = qc.getQueryData<StatusResponse>(["status"]);
+      if (prev) {
+        qc.setQueryData<StatusResponse>(["status"], {
+          ...prev,
+          cycle_in_progress: true,
+          pipeline_running: true,
+          progress: {
+            ...prev.progress,
+            stage: prev.progress?.stage ?? "ingest",
+            stage_label: prev.progress?.stage_label ?? "Starting…",
+            stage_index: prev.progress?.stage_index ?? 1,
+          },
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["status"], ctx.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["status"] });
+    },
   });
 }
-

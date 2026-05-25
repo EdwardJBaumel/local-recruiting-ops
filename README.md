@@ -1,10 +1,86 @@
 # Lantern
 
-**Multi-agent, local-first job intelligence — designed, built and shipped end-to-end.**
+**Local-first job intelligence — scrape, score, flag ghosts, all on your machine.**
 
-[Portfolio page](docs/index.md) · [LinkedIn](https://www.linkedin.com/in/edwardbaumel/) · [Setup](SETUP.md) · MIT License
+[Portfolio page](https://edwardjbaumel.github.io/lantern/) · [Setup](SETUP.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
 
-> A self-hosted pipeline that scrapes public ATS feeds, scores roles against your resume with embeddings + local LLMs, flags ghost jobs with explainable signals, and surfaces matches in a three-tab dashboard — without sending your data to anyone else's servers.
+> A self-hosted pipeline that ingests public ATS feeds, scores roles against your resume with embeddings + local LLMs, flags ghost jobs with explainable signals, and surfaces matches in a dashboard — without sending your data to anyone else's servers.
+
+---
+
+## Quick start (for users)
+
+Lantern is a **local power tool**, not a hosted SaaS. If you can install Ollama and run one startup script, you get a private job pipeline with no API bills.
+
+### Requirements
+
+| Need | Notes |
+|------|--------|
+| Python 3.11+ | Backend |
+| Node 18+ | Builds the dashboard on first run |
+| [Ollama](https://ollama.com/download) | Local LLM runtime |
+| ~14 GB model disk | `qwen3:8b` + `qwen3:14b` recommended |
+| GPU optional | ~3 min/cycle on 16 GB VRAM · ~8–12 min CPU-only |
+
+**First run:** expect 10–20 minutes (deps, UI build, model warmup). **After that:** ~1–2 minutes to launch.
+
+### Install
+
+```bash
+git clone https://github.com/edwardjbaumel/lantern.git
+cd lantern
+
+ollama pull qwen3:8b
+ollama pull qwen3:14b
+```
+
+**Windows**
+
+```powershell
+.\start.ps1
+```
+
+**macOS / Linux**
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+Opens **one app URL:** [http://127.0.0.1:8099](http://127.0.0.1:8099)
+
+Then: **Settings → upload resume → Run Pipeline**.
+
+Personal config and match data live in `lantern/api/data/` and are **gitignored**.
+
+**UI dev mode** (hot reload on `:3000`):
+
+```powershell
+$env:LANTERN_DEV_UI = "1"; .\start.ps1
+```
+
+Full walkthrough: [SETUP.md](SETUP.md)
+
+---
+
+## What you get
+
+| Tab | Purpose |
+|-----|---------|
+| **Brief** | Market charts, source health, skill gaps, last-cycle funnel |
+| **Matches** | Sortable registry with ghost badges, fit/gap detail, cover letters |
+| **History** | Long-run cycle timeline (ingest → matches per run) |
+| **Settings** | Resume, companies, scoring weights, models, reset |
+
+**Pipeline per cycle (~900–1,000 raw postings):**
+
+- **Scrape** — Greenhouse, Lever, Ashby tenants you configure, plus Amazon, Google (page 1), Workday, RemoteOK, Jobicy
+- **Match** — `BAAI/bge-m3` embeddings + tunable soft filters (location, salary, experience)
+- **Parse** — Local LLM on HTML-only sources (`qwen3:8b`)
+- **Ghost detect** — Nine explainable signals (not a black-box score)
+- **Analyse** — Fit/gap on top N matches only (`qwen3:14b`)
+
+**$0 API cost.** Resume never leaves your machine.
 
 ---
 
@@ -14,53 +90,16 @@
 
 **Why it exists:** Ghost jobs, opaque aggregators and cloud-only "AI recruiters" that want your full work history.
 
-**What it proves:**
-
 | Skill | Evidence |
 |-------|----------|
-| Product judgment | Cut auto-apply, cloud version, TOS-violating scrapers and v1 bloat before GitHub; three tabs, every setting earns its place |
+| Product judgment | Cut auto-apply, cloud version, TOS-violating scrapers and v1 bloat before GitHub; four tabs, every setting earns its place |
 | AI / agents | Ingest → parse → match → ghost-fold → analyse orchestrator; task-specific Ollama models; embedding-first scoring |
 | Technical depth | Python backend, TS frontend, 256 tests, CI, atomic JSON state, two-pass match (13 min → 3 min time-to-first-result) |
-| Iteration | Frozen v1 in `archive/sentinel/` beside production v2 — credible v1→v2 story |
+| Iteration | Frozen v1 in `archive/sentinel/` beside production v2 |
 
-**Scope:** ~1,000 jobs/cycle · $0 API cost · 16 GB GPU or CPU-only · [Full portfolio write-up →](docs/index.md)
+**Scope:** ~1,000 jobs/cycle · $0 API cost · 16 GB GPU or CPU-only · [Portfolio page →](https://edwardjbaumel.github.io/lantern/)
 
-I'm a Senior PM looking for AI-platform / developer-tools roles. If your team builds tools where the user is the product, not the data, [let's talk](https://www.linkedin.com/in/edwardbaumel/).
-
----
-
-## The problem
-
-Applying to Senior PM roles in early 2026 surfaced three patterns:
-
-1. **Ghost jobs.** A meaningful share of postings had been up for 60+ days with no movement — pure funnel-padding.
-2. **Aggregators.** LinkedIn / Indeed / Wellfound bury matches behind paywalls and email digests timed for engagement, not relevance.
-3. **Privacy.** Every AI-powered alternative wants the full work history uploaded to their cloud.
-
-Lantern fixes all three with one tool that runs entirely on your machine.
-
----
-
-## What it does
-
-| | |
-|---|---|
-| **Scrape** | Greenhouse / Lever / Ashby tenants you configure, plus Amazon JSON, Google Careers (page 1, robots.txt-respectful), Workday tenants, RemoteOK and Jobicy. ~900–1,000 raw postings per cycle. |
-| **Parse** | Local LLM (`qwen3:8b`) extracts structured fields from HTML sources. JSON-API sources skip parse. |
-| **Score** | Embedding similarity (`BAAI/bge-m3`) + soft adjustments for title, location, salary and experience. |
-| **Detect ghosts** | Nine deterministic heuristics with per-signal severity caps and explainable reasons in the UI. |
-| **Surface** | Brief (market), Matches (sortable table + detail), Settings (every knob exposed). |
-
-Full cycle: **~3 minutes on a 16 GB GPU** or **~8–12 minutes CPU-only**.
-
----
-
-## How this differs from other "GenAI for jobs" projects
-
-- **Local-only.** Ollama + sentence-transformers. No OpenAI bill. Resume never leaves the box.
-- **Ghost-aware.** Explainable 0–100 ghost score — headline differentiator.
-- **Tunable, not magical.** Every weight exposed; scores decompose to inputs you can inspect.
-- **TOS-respectful.** Public structured feeds only; stealth scrapers removed before public release.
+I'm a Senior PM looking for AI-platform / developer-tools roles. [LinkedIn](https://www.linkedin.com/in/edwardbaumel/)
 
 ---
 
@@ -69,39 +108,27 @@ Full cycle: **~3 minutes on a 16 GB GPU** or **~8–12 minutes CPU-only**.
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  1. INGEST     → ~900–1,000 raw postings from configured sources    │
-│  2. MATCH      → fast pass on JSON-parsed batch (embeddings)        │
-│  3. PARSE      → HTML-only cards in parallel (qwen3:8b)             │
+│  2. MATCH      → fast pass on JSON batch (embeddings)               │
+│  3. PARSE      → HTML-only cards (qwen3:8b)                          │
 │  4. MATCH      → slow pass on newly parsed cards                    │
-│  5. GHOST-FOLD → nine signals → explainable ghost score              │
-│  6. ANALYZE    → fit/gap on top N only (gemma3:12b)                 │
-│  7. PERSIST    → atomic JSON writes + per-path locking (Windows)     │
+│  5. GHOST-FOLD → nine signals → explainable ghost score             │
+│  6. ANALYZE    → fit/gap on top N (qwen3:14b)                      │
+│  7. PERSIST    → match registry + cycle history + market intel      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## Engineering choices
-
 <details>
-<summary><strong>Why local LLMs, embeddings, rules-based ghosts, two-pass match, and what I did not build</strong> (click to expand)</summary>
+<summary><strong>Engineering trade-offs</strong> (click to expand)</summary>
 
-### Why local LLMs (and not OpenAI)
-~1,000 jobs/cycle costs ~$3 on GPT-4o-mini and ~$25 on Sonnet. At one cycle/day for two months that's $600–1,500. Local Ollama runs on a 16 GB GPU or CPU-only in 8–12 min per cycle.
+**Local LLMs, not OpenAI** — ~$3–25/cycle on hosted APIs at this volume; Ollama runs free locally.
 
-### Why embeddings instead of LLM-as-judge
-Cosine similarity is deterministic and ~50× faster. LLM reserved for parsing and prose deliverables (fit/gap, cover letters).
+**Embeddings, not LLM-as-judge** — Deterministic cosine similarity ~50× faster; LLM reserved for parse and prose.
 
-### Why ghost detection is rules-based
-Explainable signals ("posted 92 days ago", "missing apply link") beat a black-box classifier with no labels.
+**Rules-based ghosts** — Explainable signals beat a classifier with no labels.
 
-### Why a two-pass match split
-Single-pass meant an empty Matches tab for ~8 minutes. Two-pass dropped **time-to-first-match from ~13 min to ~3 min**.
+**Two-pass match** — Time-to-first-match dropped from ~13 min to ~3 min.
 
-### Why chunked embedding pre-encode
-First match visible within ~10 seconds of match stage start on CPU (32-job encode chunks + streaming callbacks).
-
-### What I deliberately didn't build
-Auto-apply · cloud version · mobile app · job board marketplace · TOS-violating scrapers
+**Not built:** auto-apply · cloud version · TOS-violating scrapers · mobile app
 
 </details>
 
@@ -110,10 +137,10 @@ Auto-apply · cloud version · mobile app · job board marketplace · TOS-violat
 ## Stack
 
 | Layer | Tool |
-|---|---|
+|-------|------|
 | Frontend | Vite · React 18 · TypeScript · Tailwind · shadcn/ui |
 | Backend | Python stdlib `http.server` · threaded orchestrator |
-| LLM | Ollama (qwen3:8b / 14b / 30b-a3b, gemma3:12b) |
+| LLM | Ollama (`qwen3:8b`, `qwen3:14b`) |
 | Embeddings | sentence-transformers (`BAAI/bge-m3`) |
 | Tests | pytest (190) · vitest (66) · GitHub Actions CI |
 
@@ -124,54 +151,40 @@ Auto-apply · cloud version · mobile app · job board marketplace · TOS-violat
 ```
 .
 ├── README.md              ← you are here
-├── docs/index.md          ← resume / portfolio page (GitHub Pages)
+├── docs/index.md          ← GitHub Pages portfolio landing
+├── SETUP.md               ← full install walkthrough
 ├── AGENTS.md              ← cloud-agent guide
+├── start.ps1 / start.sh   ← one-command launcher
 ├── lantern/api/           ← Python backend (:8099)
-├── lantern/ui/            ← React frontend (:3000)
-└── archive/               ← frozen v1 (Sentinel), kept for reference
+├── lantern/ui/            ← React source (built into backend on launch)
+└── archive/               ← frozen v1 (Sentinel), reference only
 ```
 
 ---
 
-## Setup
-
-**Full walkthrough:** [SETUP.md](SETUP.md) · **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-**Prerequisites:** Python 3.11+ · Node 18+ · [Ollama](https://ollama.com/download)
+## Develop & test
 
 ```bash
-ollama pull qwen3:8b
-ollama pull qwen3:14b
-ollama pull gemma3:12b
+cd lantern/api && pip install -r requirements.txt -r requirements-dev.txt && pytest
+cd ../ui && npm ci && npm test
 ```
 
-```powershell
-.\start.ps1          # Windows
-./start.sh           # macOS / Linux
-```
-
-Launcher bootstraps venv, `npm install`, seeds `config.json` from `config.example.json`, starts backend + UI.
-
-Personal config and match data live in `lantern/api/data/` and are **gitignored**.
+Cloud agents: see [AGENTS.md](AGENTS.md)
 
 ---
 
-## GitHub Pages (optional)
+## GitHub Pages
 
-To publish the portfolio page at `https://YOUR_USERNAME.github.io/lantern/`:
+Portfolio landing: [docs/index.md](docs/index.md)
 
-1. Push this repo to GitHub
-2. **Settings → Pages → Build from branch → `main` → `/docs`**
-3. The landing page is [docs/index.md](docs/index.md)
+After push, enable **Settings → Pages → Deploy from branch → `master` → `/docs`**.
 
-**Suggested repo About line:** `Local-first multi-agent job pipeline — embeddings, Ollama, ghost-job detection. Portfolio piece.`
-
-**Suggested topics:** `ollama` `local-llm` `job-search` `embeddings` `multi-agent` `python` `react` `portfolio-project`
+Live URL: `https://edwardjbaumel.github.io/lantern/`
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Fork it, run it, build on it. Keep the copyright notice.
+MIT — see [LICENSE](LICENSE).
 
 Built by [Eddie Baumel](https://www.linkedin.com/in/edwardbaumel/).

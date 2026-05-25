@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Lantern dev launcher (macOS / Linux)
-# Boots the Python pipeline + API on :8099 and the Vite dashboard on :3000.
+# Boots Lantern on one visible local URL by default: http://127.0.0.1:8099.
+# Set LANTERN_DEV_UI=1 to also run the Vite dashboard on :3000 for UI work.
 # Press Ctrl-C in this terminal to stop both.
 #
 # Usage:
@@ -17,6 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="$ROOT/lantern/api"
 UI_DIR="$ROOT/lantern/ui"
+DEV_UI="${LANTERN_DEV_UI:-0}"
 
 # --- Sanity ------------------------------------------------------------
 if [[ ! -d "$API_DIR" ]]; then
@@ -73,14 +75,20 @@ if [[ ! -d "$UI_DIR/node_modules" ]]; then
     echo "Installing dashboard dependencies (one-time)..."
     (cd "$UI_DIR" && "$NPM" install)
 fi
+if [[ ! "$DEV_UI" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
+    echo "Building dashboard for single-port mode (:8099)..."
+    (cd "$UI_DIR" && "$NPM" run build)
+fi
 
 echo
 echo "  Lantern launcher"
 echo "  - Python : $PYTHON"
 echo "  - API dir: $API_DIR"
 echo "  - UI dir : $UI_DIR"
-echo "  - Backend: http://127.0.0.1:8099"
-echo "  - Dash   : http://127.0.0.1:3000"
+echo "  - App    : http://127.0.0.1:8099"
+if [[ "$DEV_UI" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
+    echo "  - Dev UI : http://127.0.0.1:3000"
+fi
 echo
 
 # --- Start Ollama if not running ---------------------------------------
@@ -113,9 +121,9 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# --- Spawn backend + frontend -----------------------------------------
-# LANTERN_NO_BROWSER stops the backend from opening :8099 (which would
-# serve the stale built bundle, not Vite's live dev server).
+# --- Spawn backend (+ optional frontend dev server) --------------------
+# LANTERN_NO_BROWSER stops the backend from opening its own tab. The
+# launcher opens the canonical dashboard URL once ready.
 # LANTERN_MANUAL_MODE makes the orchestrator wait for /api/run-cycle
 # instead of auto-firing every interval.
 export LANTERN_NO_BROWSER=1
@@ -124,22 +132,29 @@ export LANTERN_MANUAL_MODE="${LANTERN_MANUAL_MODE:-1}"
 (cd "$API_DIR" && "$PYTHON" main.py) &
 backend_pid=$!
 
-(cd "$UI_DIR" && "$NPM" run dev) &
-frontend_pid=$!
+if [[ "$DEV_UI" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
+    (cd "$UI_DIR" && "$NPM" run dev) &
+    frontend_pid=$!
+fi
 
-# --- Open the dashboard once Vite is listening -------------------------
-DASH_URL="http://127.0.0.1:3000/#launch=$(date +%s)"
+# --- Open the dashboard once the app is listening ----------------------
+if [[ "$DEV_UI" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
+    DASH_PORT=3000
+else
+    DASH_PORT=8099
+fi
+DASH_URL="http://127.0.0.1:${DASH_PORT}/#launch=$(date +%s)"
 opened=0
 while true; do
     if ! kill -0 "$backend_pid" 2>/dev/null; then
         echo "Backend exited." >&2
         break
     fi
-    if ! kill -0 "$frontend_pid" 2>/dev/null; then
+    if [[ -n "$frontend_pid" ]] && ! kill -0 "$frontend_pid" 2>/dev/null; then
         echo "Frontend exited." >&2
         break
     fi
-    if [[ $opened -eq 0 ]] && nc -z 127.0.0.1 3000 2>/dev/null; then
+    if [[ $opened -eq 0 ]] && nc -z 127.0.0.1 "$DASH_PORT" 2>/dev/null; then
         echo "Opening dashboard at $DASH_URL"
         if command -v open >/dev/null; then
             open "$DASH_URL" >/dev/null 2>&1 || true

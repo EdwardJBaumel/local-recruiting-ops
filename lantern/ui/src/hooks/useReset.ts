@@ -19,7 +19,8 @@ interface ResetResponse {
 
 /**
  * POST /api/reset-history — wipes per-cycle data:
- *   - data/matches/*.json, data/parsed/*.json, data/fit_gaps/*, data/digests/*
+ *   - data/matches/ (per-cycle history), legacy parsed/ and fit_gaps/
+ *   - data/digests/* (when digest has run)
  *   - data/match_registry.json (so star / dismiss flags reset too)
  *   - data/seen_urls.json, data/seen_jobs.json (URL dedupe)
  *   - data/cycle_times.json, data/market_intel.json (aggregates)
@@ -65,6 +66,7 @@ export function useResetHistory() {
       // fallback can't paint stale rows during the next refetch.
       qc.removeQueries({ queryKey: ["matches"] });
       qc.removeQueries({ queryKey: ["market"] });
+      qc.removeQueries({ queryKey: ["cycle-history"] });
       // status auto-polls and has no placeholderData, so a plain
       // invalidate is enough — the next 2s heartbeat will repopulate.
       qc.invalidateQueries({ queryKey: ["status"] });

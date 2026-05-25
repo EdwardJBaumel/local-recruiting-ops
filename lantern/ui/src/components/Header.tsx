@@ -29,7 +29,10 @@ export function Header() {
   // if the server's flag is set OR the orchestrator's progress.stage
   // is non-idle. Belt-and-suspenders: works whether the auto-loop
   // (off by default) or the manual button kicked off the run.
-  const inProgress = !!status.data?.cycle_in_progress;
+  // Include isPending so the button stays "active" between mutation
+  // success and the first post-click /api/status poll (was a 1-frame
+  // flash back to "Run Pipeline").
+  const inProgress = !!status.data?.cycle_in_progress || run.isPending;
   const stage = status.data?.progress?.stage_label;
 
   // Backend-unreachable banner. Fires when the heartbeat endpoint has
@@ -119,6 +122,7 @@ export function Header() {
         <TabsList className="h-auto bg-transparent p-0 gap-1 -mb-px rounded-none justify-start">
           <NavTab value="brief">Brief</NavTab>
           <NavTab value="matches">Matches</NavTab>
+          <NavTab value="history">History</NavTab>
           <NavTab value="settings">Settings</NavTab>
         </TabsList>
       </div>

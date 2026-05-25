@@ -2,8 +2,8 @@
 REM =====================================================================
 REM  LANTERN - double-click launcher.
 REM
-REM  Hands off to start.ps1 which uses the local venv to run the Python
-REM  backend on :8099 + the Vite dev server on :3000. Make sure Ollama
+REM  Hands off to start.ps1 which uses the local venv to run Lantern on
+REM  one visible URL (:8099). Make sure Ollama
 REM  is running (ollama serve) with qwen3:14b, qwen3:8b, gemma3:12b,
 REM  and phi4-reasoning:14b pulled.
 REM

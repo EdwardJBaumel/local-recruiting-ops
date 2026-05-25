@@ -2,11 +2,12 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useUIStore } from "@/stores/ui";
 import { Brief } from "@/views/Brief";
 import { Matches } from "@/views/Matches";
+import { History } from "@/views/History";
 import { Settings } from "@/views/Settings";
 import { Header } from "@/components/Header";
 
 /**
- * Lantern app shell. Three tabs only — Brief, Matches, Settings —
+ * Lantern app shell. Top-level tabs — Brief, Matches, History, Settings —
  * matching the product spec. Tab state lives in the UI Zustand store
  * so deep links / refresh / programmatic navigation can drive it
  * without prop-drilling.
@@ -30,6 +31,9 @@ export default function App() {
         </TabsContent>
         <TabsContent value="matches" className="mt-0">
           <Matches />
+        </TabsContent>
+        <TabsContent value="history" className="mt-0">
+          <History />
         </TabsContent>
         <TabsContent value="settings" className="mt-0">
           <Settings />

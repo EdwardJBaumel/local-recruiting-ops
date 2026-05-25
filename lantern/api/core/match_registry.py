@@ -14,9 +14,8 @@ ships without sentence-transformers and we honour the "local cost is a
 finite budget" rule — Jaccard is O(tokens), zero VRAM, no model load.
 
 Single source of truth for every role that has ever scored above the
-match threshold for this user. The per-cycle cycle_NNNN.json files in
-data/matches/ are still written for audit and for market-intel
-back-compat, but the UI reads from this registry so:
+match threshold for this user. Per-cycle snapshots in data/matches/
+retain run-by-run history; the UI reads from this registry so:
 
   a. Matches don't silently fall off after 10 cycles (server.py's
      previous /api/matches concatenated the 10 most-recent cycle files).

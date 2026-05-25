@@ -145,6 +145,9 @@
 
   "pipeline": {
     "_comment": "auto_start=false means cycles ONLY run when you click Run Pipeline in the dashboard. Set to true to also fire every cycle_interval_minutes — useful for headless / overnight runs.",
-    "auto_start": false
+    "_comment_storage": "match_registry.json = live union of all matches. data/matches/cycle_*.json = per-run history. cycle_times.json = funnel stats. market_intel.json = Brief charts. parsed/ and fit_gaps/ are no longer written (redundant with registry).",
+    "_comment_history": "How many cycles to keep for chart history in cycle_times.json and market_intel.json. 2000 is ~6 weeks at 30-minute auto runs, or years for manual use.",
+    "auto_start": false,
+    "history_retention_cycles": 2000
   }
 }

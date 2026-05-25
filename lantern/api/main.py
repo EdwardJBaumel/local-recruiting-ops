@@ -197,7 +197,7 @@ def main():
     print(f"Lantern dashboard: {dashboard_url}")
 
     # Open the browser ASAP. LANTERN_NO_BROWSER=1 lets the launcher
-    # open :3000 (the Vite dev server) instead during development.
+    # choose the right URL (normally :8099, or Vite :3000 in dev UI mode).
     # SENTINEL_NO_BROWSER is honored as a legacy alias (see app_paths.py).
     if (os.environ.get("LANTERN_NO_BROWSER") or os.environ.get("SENTINEL_NO_BROWSER")) != "1":
         def _open():

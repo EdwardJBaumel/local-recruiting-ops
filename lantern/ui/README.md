@@ -1,6 +1,6 @@
 # lantern/ui — Vite + React + TypeScript frontend
 
-The dashboard. Three tabs (Brief, Matches, Settings), dark-mode only, runs on **port 3000** in dev. Reads `/api/*` via Vite's dev proxy, which forwards to the Python backend on port 8099.
+The dashboard source. Normal launches serve the built UI from the Python backend on **port 8099** so the user sees one local app URL. Set `LANTERN_DEV_UI=1` when you specifically want Vite on **port 3000** for UI development; Vite proxies `/api/*` to the backend on port 8099.
 
 This is a pure view layer — no server-side state of its own. All persistent state lives behind `/api/*` on the backend; the UI only owns ephemeral session state (selected row, filter toggles, current tab).
 
@@ -107,7 +107,10 @@ npm install
 npm run dev     # → http://localhost:3000
 
 # Or — easier — from the repo root, use the launcher:
-.\start.ps1     # brings up backend + UI together
+.\start.ps1     # single visible app URL -> http://127.0.0.1:8099
+
+# UI development mode with hot reload:
+$env:LANTERN_DEV_UI = "1"; .\start.ps1
 ```
 
 The dev server is set to `strictPort: true` on 3000 so a port conflict surfaces immediately rather than silently moving you to 3001.

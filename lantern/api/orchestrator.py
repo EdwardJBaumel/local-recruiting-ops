@@ -25,6 +25,8 @@ from digest import DigestGenerator
 
 logger = logging.getLogger("lantern.orchestrator")
 
+DEFAULT_HISTORY_RETENTION_CYCLES = 2000
+
 
 def _resolve_manual_mode(config: dict, env=None) -> bool:
     """Pure helper so the manual-vs-auto decision is unit-testable without
@@ -55,6 +57,11 @@ class Orchestrator:
         self.max_cycles = config.get("max_cycles", 0)
         self.data_dir = Path(config.get("data_dir", "data"))
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        history_cfg = (config.get("pipeline", {}) or {}).get("history_retention_cycles")
+        try:
+            self.history_retention_cycles = max(100, int(history_cfg or DEFAULT_HISTORY_RETENTION_CYCLES))
+        except (TypeError, ValueError):
+            self.history_retention_cycles = DEFAULT_HISTORY_RETENTION_CYCLES
 
         # Resolve the effective profile text: an uploaded resume
         # (data/resume/) always wins over config.match.profile_text so the
@@ -306,6 +313,8 @@ class Orchestrator:
         return f"{(p.get('title') or '').strip().lower()}||{(p.get('company') or '').strip().lower()}"
 
     def _save_matches(self, matches, cycle):
+        """Per-cycle match history. The registry is the live union; this
+        file is the audit trail of what scored above threshold that run."""
         out = self.data_dir / "matches" / f"cycle_{cycle:04d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         data = sorted(
@@ -315,12 +324,6 @@ class Orchestrator:
         )
         write_text_atomic(out, json.dumps(data, indent=2))
         logger.info("Saved %d matches to %s", len(data), out)
-
-    def _save_fit_gaps(self, reports, cycle):
-        out = self.data_dir / "fit_gaps" / f"cycle_{cycle:04d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        write_text_atomic(out, json.dumps(reports, indent=2))
-        logger.info("Saved %d fit-gap reports to %s", len(reports), out)
 
     def _save_market_intel(self, all_jobs, cycle):
         """Accumulate market intelligence data."""
@@ -378,14 +381,8 @@ class Orchestrator:
             except Exception:
                 pass
         history.append(intel)
-        # Keep last 50 cycles
-        history = history[-50:]
+        history = history[-self.history_retention_cycles:]
         write_text_atomic(self.market_data_file, json.dumps(history, indent=2))
-
-    def _save_all_parsed(self, jobs, cycle):
-        out = self.data_dir / "parsed" / f"cycle_{cycle:04d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        write_text_atomic(out, json.dumps([j.payload for j in jobs], indent=2))
 
     def _effective_profile_text(self) -> str:
         """Decide what profile_text to feed the match agent.
@@ -649,7 +646,7 @@ class Orchestrator:
         # Per-pass accumulators that merge into stats / persisted files at
         # the end. Keeping them as locals (instead of mutating stats inline)
         # makes both passes parallel-shaped and easier to reason about.
-        all_clean_packets: list = []      # for market_intel + save_all_parsed
+        all_clean_packets: list = []      # for market_intel
         all_new_packets: list = []        # union of new_packets across passes
         all_fake_reports: list = []       # appended to fake_jobs.json once
         total_qa_pass = 0
@@ -892,8 +889,6 @@ class Orchestrator:
             self._log_stats(stats)
             return stats
 
-        self._save_all_parsed(new_packets, cycle)
-
         # =====================================================================
         # POST-MATCH PERSISTENCE (was inline in the old single-pass MATCH
         # block; both passes have already finished by this point).
@@ -966,32 +961,11 @@ class Orchestrator:
                     len(to_analyze), len(matches), top_n,
                 )
             fit_reports = self.analyzer.run(to_analyze)
-            self._save_fit_gaps(fit_reports, cycle)
             stats["fit_gaps"] = len(fit_reports)
             self.progress["counts"]["fit_gaps"] = stats["fit_gaps"]
 
-            # =====================================================================
-            # Merge fit-gap reports back onto the match registry payloads.
-            # =====================================================================
-            # Before this fix, fit-gap data lived only in data/fit_gaps/
-            # cycle_X.json — the match registry payloads never received
-            # it. That broke the SkillGap card on the Brief tab: it
-            # reads `m._fit_gap.matched` / `m._fit_gap.gaps` from each
-            # match in the FE registry, found `undefined` on every row,
-            # and rendered "Not enough analysed matches yet" even when
-            # the registry had 1000+ matches. The fit_gaps/*.json files
-            # were a write-only sink.
-            #
-            # Now: every fit report gets folded onto its source packet's
-            # `_fit_gap` field (matching the FE's MatchPayload._fit_gap
-            # shape), then we upsert those packets into the registry
-            # so the FE's next poll picks them up.
-            #
-            # Wire shape mapping (analyzer output → FE consumer):
-            #   matched_skills       → _fit_gap.matched     (list[str])
-            #   missing_skills/gaps  → _fit_gap.gaps        (list[str])
-            #   fit_summary          → _fit_gap.summary     (str)
-            #   talking_points       → _fit_gap.rationale   (str, joined)
+            # Merge fit-gap reports onto match registry payloads so the
+            # Brief SkillGap card and match rows can read `_fit_gap`.
             if fit_reports:
                 by_url = {r.get("url"): r for r in fit_reports if r.get("url")}
                 updated_packets = []
@@ -1156,7 +1130,7 @@ class Orchestrator:
                 if key in stats:
                     entry[key] = stats[key]
         history.append(entry)
-        history = history[-100:]
+        history = history[-self.history_retention_cycles:]
         write_text_atomic(path, json.dumps(history, indent=2))
 
     def _log_stats(self, stats):

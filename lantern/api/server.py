@@ -96,6 +96,38 @@ def load_json_cached(path: Path, default=None):
     return parsed
 
 
+def _last_cycle_for_status(cycle_times):
+    """Return the most recent cycle funnel stats for /api/status.
+
+    Prefer the in-memory copy from the last finished run (richer —
+    includes url_dedupe, mode, tiers). Fall back to cycle_times.json
+    after a server restart so the Brief tab still has something to show.
+    """
+    live = _pipeline_state.get("last_cycle")
+    if live:
+        return live
+    if not cycle_times:
+        return None
+    entry = cycle_times[-1]
+    if not isinstance(entry, dict):
+        return None
+    return {
+        "cycle": entry.get("cycle"),
+        "ingested": entry.get("ingested", 0),
+        "parsed": entry.get("parsed", 0),
+        "qa_pass": entry.get("qa_pass", 0),
+        "qa_fail": entry.get("qa_fail", 0),
+        "fake_blocked": entry.get("fake_blocked", 0),
+        "new_jobs": entry.get("new_jobs", 0),
+        "matches": entry.get("matches", 0),
+        "fit_gaps": entry.get("fit_gaps", 0),
+        "resumes": entry.get("resumes", 0),
+        "ingest_seconds": entry.get("ingest_seconds"),
+        "pipeline_seconds": entry.get("pipeline_seconds"),
+        "duration_seconds": entry.get("seconds"),
+    }
+
+
 def _run_single_cycle(tiers=("fast",)):
     """Run one pipeline cycle in a background thread.
     Caller (POST /api/run-cycle) has already set cycle_in_progress=True
@@ -170,6 +202,18 @@ class SentinelHandler(BaseHTTPRequestHandler):
 
         if path == "/api/market":
             self._send_json(load_json(MARKET_FILE, []))
+
+        elif path == "/api/cycle-history":
+            # Timeline for the History tab. Same source as status averages,
+            # newest first and capped so the dashboard never pulls an
+            # unbounded JSON blob from a long-lived install.
+            all_cycles = load_json_cached(DATA_DIR / "cycle_times.json", []) or []
+            try:
+                n = int(parse_qs(parsed.query).get("n", ["500"])[0])
+            except Exception:
+                n = 500
+            n = max(1, min(n, 2000))
+            self._send_json(list(reversed(all_cycles))[:n])
 
         elif path == "/api/system-info":
             # System capability snapshot for the Settings UI's Models
@@ -471,7 +515,7 @@ class SentinelHandler(BaseHTTPRequestHandler):
                 # UI can distinguish "Run Pipeline" (fast) from "Run
                 # Scraper" (slow) without guessing from the stage label.
                 "current_tiers": _pipeline_state.get("current_tiers"),
-                "last_cycle": _pipeline_state["last_cycle"],
+                "last_cycle": _last_cycle_for_status(cycle_times),
                 "last_cycle_ts": last_cycle_ts,
                 "matches_count": matches_count,
                 "cycles_logged": len(load_json_cached(MARKET_FILE, [])),
@@ -534,6 +578,7 @@ class SentinelHandler(BaseHTTPRequestHandler):
                 "endpoints": [
                     "GET  /api/status",
                     "GET  /api/market",
+                    "GET  /api/cycle-history",
                     "GET  /api/matches",
                     "GET  /api/config",
                     "GET  /api/resume", "GET  /api/resume?full=1",
@@ -556,9 +601,8 @@ class SentinelHandler(BaseHTTPRequestHandler):
 
         else:
             # Non-API path: serve the built UI out of lantern/ui/dist so
-            # the packaged build is self-contained. In dev the Vite dev
-            # server on :3000 handles this directly — the launcher
-            # opens the browser there, not at this backend's port.
+            # the normal local app has one visible origin on :8099. Vite
+            # on :3000 is opt-in via LANTERN_DEV_UI=1 for frontend work.
             self._serve_static(path)
 
     def _serve_static(self, path: str):
@@ -962,7 +1006,7 @@ when the posting doesn't name one)."""
                 self._send_json({"ok": False, "error": "Model returned an empty letter."}, 502)
                 return
 
-            # Persist for later review. Same idea as digests/fit_gaps dirs.
+            # Persist for later review (user-facing artefact, like digests/).
             saved_to = None
             try:
                 import re as _re

@@ -1,5 +1,6 @@
 # Lantern dev launcher (Windows / PowerShell)
-# Boots the Python pipeline + API on :8099 and the Vite dashboard on :3000.
+# Boots Lantern on one visible local URL by default: http://127.0.0.1:8099.
+# Set LANTERN_DEV_UI=1 to also run the Vite dashboard on :3000 for UI work.
 # Press Ctrl+C in this window to stop both.
 #
 # Usage:
@@ -30,6 +31,7 @@ if (-not (Test-Path (Join-Path $uiDir 'package.json'))) {
     Write-Host "ERROR: $uiDir\package.json not found." -ForegroundColor Red
     exit 1
 }
+$devUi = (($env:LANTERN_DEV_UI -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))
 
 # --- Resolve Python (prefer the local venv, create one on first run) ---
 # venv lives at the repo root. First-run bootstrap: if no venv exists,
@@ -90,14 +92,21 @@ if (-not (Test-Path (Join-Path $uiDir 'node_modules'))) {
     Push-Location $uiDir
     try { & $npm install } finally { Pop-Location }
 }
+if (-not $devUi) {
+    Write-Host "Building dashboard for single-port mode (:8099)..." -ForegroundColor Cyan
+    Push-Location $uiDir
+    try { & $npm run build } finally { Pop-Location }
+}
 
 Write-Host ""
 Write-Host "  Lantern launcher" -ForegroundColor Cyan
 Write-Host "  - Python : $python"
 Write-Host "  - API dir: $apiDir"
 Write-Host "  - UI dir : $uiDir"
-Write-Host "  - Backend: http://127.0.0.1:8099"
-Write-Host "  - Dash   : http://127.0.0.1:3000"
+Write-Host "  - App    : http://127.0.0.1:8099"
+if ($devUi) {
+    Write-Host "  - Dev UI : http://127.0.0.1:3000"
+}
 Write-Host ""
 
 # --- Start Ollama if not running ---------------------------------------
@@ -189,10 +198,9 @@ try {
     Write-Host "GPU probe skipped: torch not yet installed or probe errored." -ForegroundColor DarkGray
 }
 
-# --- Spawn backend + frontend as child processes -----------------------
-# LANTERN_NO_BROWSER=1 stops the backend from auto-opening :8099 (which
-# would serve a stale built bundle, not the Vite dev server). We open
-# :3000 explicitly below once Vite is listening.
+# --- Spawn backend (+ optional frontend dev server) --------------------
+# LANTERN_NO_BROWSER=1 stops the backend from opening its own tab. The
+# launcher opens the one canonical dashboard URL once the process is ready.
 $env:LANTERN_NO_BROWSER = '1'
 # Manual mode by default -- the orchestrator waits for /api/run-cycle
 # instead of auto-firing every interval. Matches the v1 fix that landed
@@ -204,21 +212,19 @@ $backend = Start-Process -FilePath $python `
     -WorkingDirectory $apiDir `
     -PassThru -NoNewWindow
 
-# npm.cmd needs cmd.exe wrapper; Start-Process won't exec .cmd directly.
-$npmArgs = @('/c', 'npm', 'run', 'dev')
-$frontend = Start-Process -FilePath "$env:ComSpec" `
-    -ArgumentList $npmArgs `
-    -WorkingDirectory $uiDir `
-    -PassThru -NoNewWindow
+$frontend = $null
+if ($devUi) {
+    # npm.cmd needs cmd.exe wrapper; Start-Process won't exec .cmd directly.
+    $npmArgs = @('/c', 'npm', 'run', 'dev')
+    $frontend = Start-Process -FilePath "$env:ComSpec" `
+        -ArgumentList $npmArgs `
+        -WorkingDirectory $uiDir `
+        -PassThru -NoNewWindow
+}
 
-# --- Wait for BOTH ports ready, then open browser ----------------------
-# We wait for port 3000 (Vite) AND port 8099 (backend) before opening
-# the dashboard tab. Vite comes up in ~150ms; the backend takes 10-20s
-# to load the embedding model and pre-warm Ollama. If we open the
-# browser the moment Vite is ready, every /api/* call in the first
-# ~15 seconds gets ECONNREFUSED, TanStack Query burns its 3 retries
-# inside that window, and the dashboard ends up showing empty cards
-# even after the backend finally comes up. Waiting for both fixes it.
+# --- Wait for app ready, then open browser -----------------------------
+# Default: one visible localhost (:8099). Dev UI mode waits for both Vite
+# (:3000) and the backend (:8099), then opens Vite so HMR works.
 function Test-Port($port) {
     foreach ($probe in @('127.0.0.1', '::1')) {
         try {
@@ -234,7 +240,8 @@ function Test-Port($port) {
 
 $dashOpened = $false
 $dashStamp  = [DateTimeOffset]::Now.ToUnixTimeSeconds()
-$dashUrl    = "http://127.0.0.1:3000/#launch=$dashStamp"
+$dashPort   = if ($devUi) { 3000 } else { 8099 }
+$dashUrl    = "http://127.0.0.1:$dashPort/#launch=$dashStamp"
 $waitMsgShown = $false
 
 # --- Ctrl+C cleanup ----------------------------------------------------
@@ -253,13 +260,16 @@ Register-EngineEvent PowerShell.Exiting -Action $cleanup | Out-Null
 try {
     while ($true) {
         if ($backend.HasExited)  { Write-Host "Backend exited (code $($backend.ExitCode))." -ForegroundColor Red; break }
-        if ($frontend.HasExited) { Write-Host "Frontend exited (code $($frontend.ExitCode))." -ForegroundColor Red; break }
+        if ($frontend -and $frontend.HasExited) { Write-Host "Frontend exited (code $($frontend.ExitCode))." -ForegroundColor Red; break }
 
         if (-not $dashOpened) {
-            $viteReady = Test-Port 3000
+            $viteReady = (-not $devUi) -or (Test-Port 3000)
             $apiReady  = Test-Port 8099
-            if ($viteReady -and -not $apiReady -and -not $waitMsgShown) {
+            if ($devUi -and $viteReady -and -not $apiReady -and -not $waitMsgShown) {
                 Write-Host "Vite ready on :3000. Waiting for backend on :8099 (embedding model + Ollama prewarm)..." -ForegroundColor Cyan
+                $waitMsgShown = $true
+            } elseif ((-not $devUi) -and -not $apiReady -and -not $waitMsgShown) {
+                Write-Host "Waiting for Lantern on :8099 (embedding model + Ollama prewarm)..." -ForegroundColor Cyan
                 $waitMsgShown = $true
             }
             if ($viteReady -and $apiReady) {
@@ -317,7 +327,9 @@ try {
                 Write-Host ""
                 Write-Host "Lantern is ready." -ForegroundColor Green
                 Write-Host "  Dashboard:  $dashUrl" -ForegroundColor Green
-                Write-Host "  Backend:    http://127.0.0.1:8099" -ForegroundColor DarkGray
+                if ($devUi) {
+                    Write-Host "  Backend:    http://127.0.0.1:8099" -ForegroundColor DarkGray
+                }
                 if (-not $opened) {
                     Write-Host ""
                     Write-Host "  Note: couldn't auto-open a browser. Click the dashboard URL above (Ctrl+Click in most terminals)." -ForegroundColor Yellow
