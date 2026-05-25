@@ -22,8 +22,7 @@ Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (
 ## Requirements
 
 - Python 3.11+, Node 18+, [Ollama](https://ollama.com/download)
-- ~5 GB disk for `qwen3:8b` (minimum) · ~14 GB for `qwen3:8b` + `qwen3:14b` (recommended)
-- NVIDIA GPU optional but strongly recommended — match phase is ~1 min on GPU vs ~80 min on CPU
+- GPU optional but strongly recommended — match phase is ~1 min on GPU vs ~80 min on CPU
 
 ---
 
@@ -32,7 +31,19 @@ Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (
 ```bash
 git clone https://github.com/edwardjbaumel/lantern.git
 cd lantern
-ollama pull qwen3:8b          # minimum; add qwen3:14b for better analysis
+```
+
+Pull a model based on your hardware:
+
+| You have | Pull this | Disk | Notes |
+|---|---|---|---|
+| 6 GB VRAM or 8 GB unified (Mac M-series base) | `qwen3:4b` | ~2.5 GB | Fits alongside the 2.3 GB embedding model |
+| 8 GB VRAM dedicated or 16 GB+ unified | `qwen3:8b` | ~5 GB | Comfortable headroom |
+| 16 GB VRAM | `qwen3:8b` + `qwen3:14b` | ~14 GB | Best quality; 14b handles analysis and cover letters |
+| No GPU / CPU only | `qwen3:4b` | ~2.5 GB | Works, but expect ~60–90 min cycles |
+
+```bash
+ollama pull qwen3:4b     # or whichever row above matches your machine
 ```
 
 **Windows:** `.\start.ps1`  
