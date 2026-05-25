@@ -336,6 +336,26 @@ function MetricStrip() {
     return Math.round((suspect / rows.length) * 100);
   })();
 
+  // Match rate — share of fetched postings that passed the score
+  // threshold on the last run (matches / ingested). More useful than
+  // per-row embedding latency for day-to-day job search.
+  const matchRate = (() => {
+    const inProgress = !!s?.cycle_in_progress;
+    const ingested = inProgress
+      ? num(s?.progress?.counts?.ingested)
+      : s?.last_cycle?.ingested;
+    const matched = inProgress
+      ? num(s?.progress?.counts?.matches)
+      : s?.last_cycle?.matches;
+    if (ingested == null || matched == null || ingested <= 0) return null;
+    return {
+      pct: Math.round((matched / ingested) * 100),
+      matched,
+      ingested,
+      live: inProgress,
+    };
+  })();
+
   const tiles: { label: string; value: string; hint?: string }[] = [
     {
       label: "Matches in registry",
@@ -361,9 +381,11 @@ function MetricStrip() {
       hint: "Last 10 cycles",
     },
     {
-      label: "Match latency",
-      value: s?.match?.median_latency_ms != null ? `${Math.round(s.match.median_latency_ms)}ms` : "—",
-      hint: s?.match?.embeddings_active ? "Embeddings (sentence-transformers)" : "LLM scoring",
+      label: "Match rate",
+      value: matchRate != null ? `${matchRate.pct}%` : "—",
+      hint: matchRate != null
+        ? `${matchRate.matched} of ${matchRate.ingested} ${matchRate.live ? "this cycle" : "last cycle"}`
+        : "Run a cycle",
     },
   ];
 
@@ -407,6 +429,10 @@ function formatDuration(seconds: number | null | undefined): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return `${h}h ${m}m`;
+}
+
+function num(v: unknown): number | undefined {
+  return typeof v === "number" ? v : undefined;
 }
 
 function FallbackBanner() {
