@@ -2,7 +2,7 @@
 
 Scrapes public job feeds, scores roles against your resume, flags ghost jobs — all on your machine, no API costs.
 
-[Setup](SETUP.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
+[Setup](SETUP.md) · [Changelog](CHANGELOG.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
 
 ---
 
