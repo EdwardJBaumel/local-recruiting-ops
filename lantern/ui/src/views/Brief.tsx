@@ -362,10 +362,6 @@ function MetricStrip() {
       value: s?.matches_count != null ? String(s.matches_count) : "—",
     },
     {
-      label: "Cycles run",
-      value: s?.cycles_recorded != null ? String(s.cycles_recorded) : "—",
-    },
-    {
       label: "Match rate",
       value: matchRate != null ? `${matchRate.pct}%` : "—",
       hint: matchRate != null
@@ -376,6 +372,10 @@ function MetricStrip() {
       label: "Ghost rate",
       value: ghostRate != null ? `${ghostRate}%` : "—",
       hint: "Flagged suspect",
+    },
+    {
+      label: "Cycles run",
+      value: s?.cycles_recorded != null ? String(s.cycles_recorded) : "—",
     },
     {
       label: "Avg scrape",
