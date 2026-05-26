@@ -366,6 +366,13 @@ function MetricStrip() {
       value: s?.cycles_recorded != null ? String(s.cycles_recorded) : "—",
     },
     {
+      label: "Match rate",
+      value: matchRate != null ? `${matchRate.pct}%` : "—",
+      hint: matchRate != null
+        ? `${matchRate.matched} of ${matchRate.ingested} ${matchRate.live ? "this cycle" : "last cycle"}`
+        : "Run a cycle",
+    },
+    {
       label: "Ghost rate",
       value: ghostRate != null ? `${ghostRate}%` : "—",
       hint: "Flagged suspect",
@@ -379,13 +386,6 @@ function MetricStrip() {
       label: "Avg pipeline",
       value: formatDuration(s?.avg_pipeline_seconds),
       hint: "Last 10 cycles",
-    },
-    {
-      label: "Match rate",
-      value: matchRate != null ? `${matchRate.pct}%` : "—",
-      hint: matchRate != null
-        ? `${matchRate.matched} of ${matchRate.ingested} ${matchRate.live ? "this cycle" : "last cycle"}`
-        : "Run a cycle",
     },
   ];
 

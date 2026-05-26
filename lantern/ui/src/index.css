@@ -2,41 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn/ui design tokens — dark theme. Values are the standard shadcn
- * dark palette with our brand orange swapped in for the accent slot.
- * Recruiter-friendly read: serious-product look, single mode, no
- * theme-toggle ceremony.
- *
- * If you ever want to add a light mode later, the cleanest path is:
- *   1. Move these values to `.dark { ... }`
- *   2. Add a sibling `:root { ... }` block with the light palette
- *   3. Re-enable `darkMode: ["class"]` in tailwind.config.js
- *   4. Add a small Zustand-backed toggle that flips `<html>.classList`
- *
- * For now we deliberately ship a single mode so we don't pay the
- * design-cost-per-feature tax on light + dark parity.
+/* Lantern dark theme — warm charcoal base, amber accent. Kept in one
+ * place so every shadcn primitive picks up the same levels.
  */
 @layer base {
   :root {
-    --background: 222 14% 7%;          /* nearly black, faint blue-warm */
-    --foreground: 0 0% 95%;
-    --card: 222 13% 11%;               /* one notch lighter for elevation */
-    --card-foreground: 0 0% 95%;
-    --popover: 222 13% 11%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 95%;               /* primary buttons are near-white */
-    --primary-foreground: 222 14% 7%;
-    --secondary: 222 13% 16%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 222 13% 14%;
-    --muted-foreground: 220 9% 60%;
-    --accent: 25 95% 55%;              /* Lantern brand orange */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 222 13% 18%;
-    --input: 222 13% 18%;
-    --ring: 25 95% 55%;                /* focus ring picks up the brand */
+    --background: 24 10% 8%;
+    --foreground: 40 12% 92%;
+    --card: 24 9% 11%;
+    --card-foreground: 40 12% 92%;
+    --popover: 24 9% 11%;
+    --popover-foreground: 40 12% 92%;
+    --primary: 40 12% 92%;
+    --primary-foreground: 24 10% 8%;
+    --secondary: 24 8% 15%;
+    --secondary-foreground: 40 10% 88%;
+    --muted: 24 7% 13%;
+    --muted-foreground: 30 6% 58%;
+    --accent: 32 78% 54%;
+    --accent-foreground: 24 10% 8%;
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 24 8% 17%;
+    --input: 24 8% 17%;
+    --ring: 32 78% 54%;
     --radius: 0.5rem;
   }
 
@@ -47,17 +36,12 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     background-image:
-      radial-gradient(ellipse 90% 60% at 0% -30%, hsl(25 90% 45% / 0.14), transparent 55%),
-      radial-gradient(ellipse 70% 50% at 100% -10%, hsl(222 35% 22% / 0.35), transparent 50%);
+      radial-gradient(ellipse 80% 55% at 0% -25%, hsl(32 70% 42% / 0.09), transparent 58%),
+      radial-gradient(ellipse 65% 45% at 100% -5%, hsl(24 20% 18% / 0.28), transparent 52%);
     background-attachment: fixed;
   }
 }
 
-/* JD prose styles — applied to sanitized HTML rendered inside the
- * MatchDetail panel. Without these, the dompurified JD comes through
- * with no margins between paragraphs (browsers default <p> margin to
- * 16px which Tailwind's preflight resets to 0). We restore enough
- * spacing to make the JD readable, plus bullet list rendering. */
 @layer components {
   .lantern-page {
     @apply min-h-screen flex flex-col;

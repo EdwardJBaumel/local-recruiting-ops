@@ -54,9 +54,9 @@ export default {
         },
         // Lantern semantic palette — used for ghost/score states.
         ghost: {
-          clear: "hsl(142 71% 45%)",
-          aging: "hsl(38 92% 50%)",
-          suspect: "hsl(0 84% 60%)",
+          clear: "hsl(142 45% 48%)",
+          aging: "hsl(38 72% 52%)",
+          suspect: "hsl(0 58% 58%)",
         },
       },
       borderRadius: {
