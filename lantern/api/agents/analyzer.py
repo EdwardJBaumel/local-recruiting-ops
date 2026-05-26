@@ -1,7 +1,6 @@
 """
 FIT-GAP ANALYZER
-Maps your resume bullets against each JD's requirements.
-Outputs: matched skills, gaps, study recommendations.
+One-sentence fit verdict + light skill tags for top match-tier jobs.
 """
 
 import logging
@@ -13,25 +12,20 @@ from core import llm
 
 logger = logging.getLogger("lantern.analyzer")
 
-FIT_GAP_PROMPT = """You are a career fit analyzer. Compare this candidate profile against the job listing and produce a structured fit-gap analysis.
+FIT_GAP_PROMPT = """Compare this candidate to the job. Be direct and specific.
 
-CANDIDATE PROFILE:
+PROFILE:
 {profile}
 
-JOB (compact signature):
+JOB:
 {signature}
 
-Respond with ONLY a JSON object (no markdown, no explanation):
+Respond with ONLY JSON (no markdown):
 {{
-  "matched_skills": ["skill1", "skill2"],
-  "missing_skills": ["skill3", "skill4"],
-  "match_percentage": <int 0-100>,
-  "fit_summary": "<one sentence overall fit assessment>",
-  "gaps": [
-    {{"skill": "skill name", "severity": "critical|moderate|minor", "mitigation": "how to close this gap quickly"}}
-  ],
-  "talking_points": ["<strength to highlight in interview>", "<another strength>"],
-  "study_recommendations": ["<specific thing to learn before applying>"]
+  "fit_summary": "<one sentence: strongest fit reason OR main gap>",
+  "matched_skills": ["up to 3 skills they already have"],
+  "missing_skills": ["up to 3 gaps worth noting"],
+  "match_percentage": <int 0-100>
 }}
 """
 
@@ -42,8 +36,6 @@ class FitGapAnalyzer:
     def __init__(self, config: dict, data_dir: Optional[Union[str, Path]] = None):
         self.profile = config.get("profile_text", "")
         self.model = config.get("model", "qwen3:8b")
-        # Where to write the running STAR+R story bank. None disables
-        # bank writes (tests, preview mode).
         self.data_dir = Path(data_dir) if data_dir else None
 
     def set_profile(self, text: str):
@@ -78,13 +70,6 @@ class FitGapAnalyzer:
             result["company"] = company
             result["url"] = payload.get("url", "")
             result["match_score"] = payload.get("_match_score", 0)
-
-            # NOTE: star_writer / story_bank side-effects were removed
-            # in the dead-code audit. They wrote a STAR-formatted
-            # story bank to data/story_bank.md, but no UI surface read
-            # it back. The fit-gap result is what the UI actually
-            # consumes (rendered in MatchDetail), and that's emitted
-            # below as the function return value.
             return result
 
         except Exception as e:
@@ -100,6 +85,16 @@ class FitGapAnalyzer:
             logger.info("No matches to analyze for fit-gap.")
             return reports
 
+        if not llm.task_llm_ready("analyze", explicit_model=self.model):
+            llm.log_skip_once(
+                "analyze_no_model",
+                "Skipping fit-gap analysis on %d match(es): analyze model '%s' not pulled. "
+                "Run `ollama pull qwen3:8b`.",
+                len(matches),
+                self.model or llm.get_model("analyze"),
+            )
+            return reports
+
         logger.info("Running fit-gap analysis on %d matched jobs", len(matches))
 
         for i, pkt in enumerate(matches):
@@ -108,18 +103,9 @@ class FitGapAnalyzer:
             report = self.analyze(pkt)
             reports.append(report)
 
-        # Summary stats
-        avg_match = sum(r.get("match_percentage", 0) for r in reports if "error" not in r) / max(len(reports), 1)
-        all_gaps = []
-        for r in reports:
-            all_gaps.extend(r.get("missing_skills", []))
-
-        # Find most common gaps
-        from collections import Counter
-        gap_counts = Counter(g.lower().strip() for g in all_gaps)
-        top_gaps = gap_counts.most_common(5)
-
-        logger.info("Fit-gap complete. Avg match: %.0f%%. Top gaps: %s",
-                     avg_match, ", ".join(f"{g}({c})" for g, c in top_gaps))
+        avg_match = sum(
+            r.get("match_percentage", 0) for r in reports if "error" not in r
+        ) / max(len(reports), 1)
+        logger.info("Fit-gap complete. Avg match: %.0f%%", avg_match)
 
         return reports

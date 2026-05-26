@@ -31,4 +31,11 @@ if not exist "%VENV_PY%" (
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
-exit /b !errorlevel!
+set "RC=!errorlevel!"
+if not "!RC!"=="0" (
+    echo.
+    echo Start LANTERN failed ^(exit !RC!^). See errors above.
+    pause
+    exit /b !RC!
+)
+exit /b 0

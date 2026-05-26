@@ -287,6 +287,62 @@ def query_json(prompt: str, task: str = "default", model: str = None,
 _CHECK_MODELS_CACHE: dict = {"ts": 0.0, "result": None}
 _CHECK_MODELS_TTL_SEC = 60.0
 
+# One-line warnings when we skip an entire LLM stage (parse, analyze, …).
+_logged_skips: set[str] = set()
+
+
+def invalidate_model_list_cache() -> None:
+    """Clear the /api/tags cache (tests + post-`ollama pull` in long runs)."""
+    global _available_models_cache
+    _available_models_cache = None
+    _CHECK_MODELS_CACHE["ts"] = 0.0
+    _CHECK_MODELS_CACHE["result"] = None
+
+
+def _model_name_in_tags(model: str, available: list[str]) -> bool:
+    if not model:
+        return False
+    return any(model in tag for tag in available)
+
+
+def task_llm_ready(
+    task: str,
+    config_models: dict = None,
+    explicit_model: str = None,
+) -> bool:
+    """True when Ollama has a model that can serve this task (incl. fallbacks).
+
+    Used to skip whole stages (parse HTML cards, fit-gap analyse) instead
+    of burning one HTTP 404 per row when nothing is pulled yet.
+    """
+    model = explicit_model or get_model(task, config_models)
+    if model in _substitute_models:
+        return True
+    available = _list_available_models()
+    if not available:
+        return False
+    if _model_name_in_tags(model, available):
+        return True
+    if model in _missing_models:
+        for candidate in FALLBACK_CHAIN:
+            if candidate == model:
+                continue
+            if _model_name_in_tags(candidate, available):
+                return True
+        return False
+    for candidate in [model, *FALLBACK_CHAIN]:
+        if _model_name_in_tags(candidate, available):
+            return True
+    return False
+
+
+def log_skip_once(key: str, message: str, *args) -> None:
+    """Emit a stage-skip warning at most once per process."""
+    if key in _logged_skips:
+        return
+    _logged_skips.add(key)
+    logger.warning(message, *args)
+
 
 def check_models(required_tasks: list = None) -> dict:
     """Check which models are available in Ollama. Returns status dict.

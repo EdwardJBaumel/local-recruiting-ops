@@ -49,7 +49,7 @@ class ParseAgent:
     """Parses raw HTML into structured job JSON using the local LLM."""
 
     def __init__(self, config: dict):
-        self.model = config.get("model", "gemma4:e4b")
+        self.model = config.get("model", "qwen3:8b")
 
     def parse(self, packet: SentinelPacket) -> SentinelPacket:
         """Take a RAW_HTML packet, return a JSON_JOB packet."""
@@ -137,6 +137,20 @@ class ParseAgent:
         """
         results = []
         html_packets = [p for p in packets if p.payload_type == PayloadType.RAW_HTML]
+        if not html_packets:
+            return results
+
+        if not llm.task_llm_ready("parse", explicit_model=self.model):
+            llm.log_skip_once(
+                "parse_no_model",
+                "Skipping PARSE on %d HTML card(s): parse model '%s' not pulled. "
+                "ATS jobs (Greenhouse/Lever/Amazon) are unaffected. "
+                "Run `ollama pull qwen3:8b` or disable Google in Settings.",
+                len(html_packets),
+                self.model or llm.get_model("parse"),
+            )
+            return results
+
         logger.info("Parsing %d HTML packets", len(html_packets))
 
         consecutive_failures = 0

@@ -20,6 +20,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+& (Join-Path $root 'scripts\verify-canonical-repo.ps1')
+if (-not $?) { exit 1 }
+
 # --- Paths -- point everything at lantern/, NOT sentinel/ -------------
 $apiDir = Join-Path $root 'lantern\api'
 $uiDir  = Join-Path $root 'lantern\ui'
@@ -133,6 +136,38 @@ if (Test-Port11434) {
             -PassThru
     } else {
         Write-Host "Ollama not found on PATH. Install from https://ollama.com/download." -ForegroundColor Yellow
+    }
+}
+
+# --- Pull core LLM if missing (parse + analyze + archetype fallback) ---
+# Set LANTERN_SKIP_MODEL_PULL=1 to skip. Google HTML cards and fit-gap
+# both need qwen3:8b; without it those stages no-op instead of 404-spam.
+if ((Test-Port11434) -and -not (($env:LANTERN_SKIP_MODEL_PULL -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))) {
+    $needPull = @()
+    try {
+        $tagsJson = (Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5).models
+        $tagNames = @($tagsJson | ForEach-Object { $_.name })
+    } catch {
+        $tagNames = @()
+    }
+    foreach ($required in @('qwen3:8b')) {
+        $found = $false
+        foreach ($t in $tagNames) {
+            if ($t -like "*$required*") { $found = $true; break }
+        }
+        if (-not $found) { $needPull += $required }
+    }
+    if ($needPull.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Ollama is up but missing: $($needPull -join ', ')" -ForegroundColor Yellow
+        Write-Host "Pulling qwen3:8b (~5 GB, one-time). Set LANTERN_SKIP_MODEL_PULL=1 to skip." -ForegroundColor Cyan
+        foreach ($m in $needPull) {
+            & ollama pull $m
+            if (-not $?) {
+                Write-Host "WARNING: ollama pull $m failed. Parse/analyze will skip until the model is installed." -ForegroundColor Yellow
+            }
+        }
+        Write-Host ""
     }
 }
 

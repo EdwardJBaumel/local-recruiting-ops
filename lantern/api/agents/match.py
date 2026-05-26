@@ -3,16 +3,13 @@
 Computes cosine similarity between user profile and parsed jobs.
 Uses sentence-transformers if available, falls back to LLM-based scoring.
 
-Scoring pipeline (hybrid architecture):
+Scoring pipeline (lean architecture):
   1. Hard filters: country, location, experience, blocked titles.
-  2. Bi-encoder (bge-m3): score all jobs — embed wide.
-  3. Cross-encoder rerank: top-N by embed score — cross-encode narrow.
-  4. Soft preference weights: location, salary, years (user config only).
-  5. Ghost fold + tier assignment.
-
-Fit signal comes from embeddings + cross-encoder, not handcrafted
-ProfileFit / title-keyword penalties. Dimensional sub-scores remain on
-the payload for UI badges only.
+  2. Bi-encoder (bge-m3): score all jobs.
+  3. Ghost fold + feedback learner (star/dismiss, ≥3 samples).
+  4. Match tier (tighter threshold) + optional list cap (top N).
+  5. Optional cross-encoder rerank (off by default).
+  6. Analyze: one-sentence fit on top 8 only.
 """
 
 import logging
@@ -336,12 +333,17 @@ class MatchAgent:
                     self.embedding_cache = None
 
         # Cross-encoder reranker (top-N refinement after bi-encoder pass).
+        try:
+            self.match_list_cap = max(0, int(config.get("match_list_cap") or 0))
+        except (TypeError, ValueError):
+            self.match_list_cap = 0
+
         ce_cfg = config.get("cross_encoder") or {}
         self.reranker = CrossEncoderReranker(
             model_name=ce_cfg.get("model"),
             top_n=ce_cfg.get("top_n", 60),
             blend_weight=ce_cfg.get("blend_weight", 0.55),
-            enabled=ce_cfg.get("enabled", True),
+            enabled=ce_cfg.get("enabled", False),
         )
         if self.reranker.active:
             logger.info(
@@ -969,6 +971,42 @@ class MatchAgent:
             priority=Priority.HIGH if adjusted >= self.threshold else Priority.LOW,
             trace_id=packet.trace_id,
         )
+
+    def apply_match_list_cap(self, results: list[SentinelPacket]) -> tuple[list[SentinelPacket], int]:
+        """Keep at most ``match_list_cap`` jobs in match tier; demote the rest."""
+        cap = int(getattr(self, "match_list_cap", 0) or 0)
+        if cap <= 0 or not results:
+            return results, 0
+
+        indexed = [
+            (i, float((results[i].payload or {}).get("_match_score") or 0))
+            for i in range(len(results))
+            if (results[i].payload or {}).get("_match_tier") == "match"
+        ]
+        if len(indexed) <= cap:
+            return results, 0
+
+        indexed.sort(key=lambda item: item[1], reverse=True)
+        demote = {i for i, _ in indexed[cap:]}
+        for i in demote:
+            result = results[i]
+            payload = dict(result.payload or {})
+            payload["_match_tier"] = "maybe"
+            payload["_is_match"] = False
+            payload["_match_list_cap_demoted"] = True
+            results[i] = SentinelPacket(
+                sender=result.sender,
+                payload_type=result.payload_type,
+                payload=payload,
+                priority=result.priority,
+                trace_id=result.trace_id,
+            )
+
+        logger.info(
+            "Match list cap %d: demoted %d/%d match-tier jobs to maybe",
+            cap, len(demote), len(indexed),
+        )
+        return results, len(demote)
 
     def rerank_results(self, results: list[SentinelPacket]) -> list[SentinelPacket]:
         """Cross-encoder rerank on top-N by bi-encoder score.

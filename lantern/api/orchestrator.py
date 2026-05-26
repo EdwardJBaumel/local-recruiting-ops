@@ -605,8 +605,14 @@ class Orchestrator:
         if stats["ingested"] == 0:
             if raw_total > 0:
                 logger.info("All %d ingested URL(s) already processed; nothing new this cycle.", raw_total)
+                # Brief match-rate uses fetched count, not post-URL-dedupe zero.
+                stats["ingested"] = raw_total
+                self.progress["counts"]["ingested"] = raw_total
             else:
                 logger.warning("No jobs ingested. Skipping pipeline.")
+            stats["duration_seconds"] = round(time.time() - cycle_started, 2)
+            stats["pipeline_seconds"] = 0.0
+            self._record_cycle_duration(cycle, stats["duration_seconds"], stats=stats)
             self._set_stage("idle", "Waiting", 0)
             return stats
 
@@ -787,9 +793,8 @@ class Orchestrator:
             elif tier == "maybe":
                 _maybes_so_far += 1
                 self.progress["counts"]["maybes"] = _maybes_so_far
-                _pending.append(result)
-                if len(_pending) >= FLUSH_EVERY:
-                    _flush_pending()
+                # Maybe-tier rows stay out of the registry — Matches tab is
+                # match-tier only. Avoids flooding the UI with embed noise.
 
         # =====================================================================
         # PASS 1: pre-parsed JSON packets — fast path to first matches
@@ -840,10 +845,19 @@ class Orchestrator:
 
         scored_packets = scored_pass_1 + scored_pass_2
 
-        # Cross-encoder rerank: refine top-N after both passes. Registry
-        # rows were written incrementally with bi-encoder scores; upsert
-        # again so the UI reflects reranked ordering.
+        # Match list cap: keep only top-N in match tier; demote the rest.
         if scored_packets:
+            try:
+                capped, demoted = self.match.apply_match_list_cap(scored_packets)
+                scored_packets = capped
+                if demoted and _reg is not None:
+                    _reg.upsert_matches(scored_packets, cycle, profile_version=_profile_version)
+                    logger.info("Registry updated after match list cap (%d demoted)", demoted)
+            except Exception as e:
+                logger.warning("Match list cap failed (keeping tiers): %s", e)
+
+        # Optional cross-encoder rerank (off by default in config.example).
+        if scored_packets and getattr(self.match, "reranker", None) and self.match.reranker.active:
             try:
                 reranked = self.match.rerank_results(scored_packets)
                 if _reg is not None:
@@ -906,6 +920,16 @@ class Orchestrator:
 
         if not new_packets:
             logger.info("No new unique jobs this cycle.")
+            stats["matches"] = len(
+                [p for p in scored_packets if (p.payload or {}).get("_is_match")]
+            )
+            self.progress["counts"]["matches"] = stats["matches"]
+            stats["duration_seconds"] = round(time.time() - cycle_started, 2)
+            try:
+                stats["pipeline_seconds"] = round(time.time() - pipeline_started, 2)
+            except NameError:
+                stats["pipeline_seconds"] = 0.0
+            self._record_cycle_duration(cycle, stats["duration_seconds"], stats=stats)
             self._set_stage("idle", "Waiting", 0)
             self._log_stats(stats)
             return stats

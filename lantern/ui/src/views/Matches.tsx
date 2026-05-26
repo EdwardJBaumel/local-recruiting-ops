@@ -2,12 +2,13 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useMatches } from "@/hooks/useMatches";
+import { useFilteredMatches } from "@/hooks/useFilteredMatches";
 import { useConfig } from "@/hooks/useConfig";
 import { useUIStore } from "@/stores/ui";
 import { MatchTable } from "@/components/MatchTable";
 import { MatchDetail } from "@/components/MatchDetail";
 import { useStatus } from "@/hooks/useStatus";
-import { isCountryOnlyLocation, getRemoteRegion } from "@/lib/geocode";
+import { isCountryOnlyLocation } from "@/lib/geocode";
 import { classifyCompany, DEFAULT_FRESHNESS_WINDOWS } from "@/lib/companyTier";
 import { MapPin } from "lucide-react";
 
@@ -28,6 +29,7 @@ export function Matches() {
   const status = useStatus();
   const config = useConfig();
   const filters = useUIStore((s) => s.matchFilters);
+  const { rows: registryRows, stats: filterStats } = useFilteredMatches(matches.data, filters);
   // Pulled at the top so the conditional layout below knows whether to
   // render the right-rail detail panel.
   const selectedUrl = useUIStore((s) => s.selectedJobUrl);
@@ -87,19 +89,12 @@ export function Matches() {
   // Track HOW MANY rows each filter dropped so we can surface "20
   // dropped by location, 8 dropped by age" — the user gets immediate
   // feedback that filters are doing something.
-  const { filtered, droppedByLocation, droppedByAge, droppedByForeignRemote, droppedByTitle } = useMemo(() => {
-    const all = matches.data ?? [];
+  const { filtered, droppedByLocation, droppedByAge, droppedByTitle } = useMemo(() => {
     const nowMs = Date.now();
     let droppedByLocation = 0;
     let droppedByAge = 0;
-    let droppedByForeignRemote = 0;
     let droppedByTitle = 0;
-    const out = all.filter((m) => {
-      if (m._removed) return false;
-      if (!filters.showDismissed && m._dismissed) return false;
-      if (filters.starredOnly && !m._starred) return false;
-      if (filters.unseenOnly && m._seen) return false;
-      if (filters.archetype && m.archetype !== filters.archetype) return false;
+    const out = registryRows.filter((m) => {
       // Title block list — wrong-discipline titles the user excluded
       // in Settings. Cheap whole-word regex test; runs before the
       // freshness / location checks since it's the cheapest gate.
@@ -133,17 +128,6 @@ export function Matches() {
       const loc = m.location ?? m._location ?? "";
       const locLower = loc.toLowerCase();
 
-      // Foreign-remote gate runs BEFORE the text inclusion check
-      // because pure "Remote - UK" would otherwise pass the
-      // country-only / remote-token short-circuits. Explicit gate.
-      if (filters.hideForeignRemote) {
-        const region = getRemoteRegion(loc);
-        if (region === "foreign") {
-          droppedByForeignRemote++;
-          return false;
-        }
-      }
-
       // 1. Block list always wins.
       if (blockedLocs.length && blockedLocs.some((b) => locLower.includes(b))) {
         droppedByLocation++;
@@ -163,8 +147,8 @@ export function Matches() {
       }
       return true;
     });
-    return { filtered: out, droppedByLocation, droppedByAge, droppedByForeignRemote, droppedByTitle };
-  }, [matches.data, filters, allowedLocs, blockedLocs, blockedTitleRe, freshnessWindows]);
+    return { filtered: out, droppedByLocation, droppedByAge, droppedByTitle };
+  }, [registryRows, allowedLocs, blockedLocs, blockedTitleRe, freshnessWindows]);
 
   const locationFilterActive = allowedLocs.length > 0 || blockedLocs.length > 0;
 
@@ -218,13 +202,13 @@ export function Matches() {
               Freshness filter dropped {droppedByAge}
             </Badge>
           )}
-          {droppedByForeignRemote > 0 && (
+          {filters.hideForeignRemote && filterStats.foreignRemoteDropped > 0 && (
             <Badge
               variant="outline"
               className="text-[10px]"
               title="Remote postings scoped to UK / Canada / EU / etc. — usually require local work authorisation."
             >
-              Foreign-remote dropped {droppedByForeignRemote}
+              Foreign-remote dropped {filterStats.foreignRemoteDropped}
             </Badge>
           )}
           {droppedByTitle > 0 && (

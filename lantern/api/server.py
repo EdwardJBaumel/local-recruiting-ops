@@ -406,6 +406,13 @@ class SentinelHandler(BaseHTTPRequestHandler):
             if entries:
                 for e in entries:
                     payload = e.get("payload") or {}
+                    # Matches tab = match tier only. Starred/dismissed state
+                    # is preserved on entries the user already touched.
+                    tier = payload.get("_match_tier")
+                    if tier and tier != "match" and not e.get("starred"):
+                        continue
+                    if tier is None and not payload.get("_is_match") and not e.get("starred"):
+                        continue
                     t = (payload.get("title") or "").strip().lower()
                     c = (payload.get("company") or "").strip().lower()
                     applied = f"{t}||{c}" in applied_keys if t and c else False

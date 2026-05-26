@@ -2,28 +2,20 @@
 
 Interview-ready record of why the system is shaped the way it is. Local-first job intelligence: scrape public ATS feeds, score against your resume, flag ghost jobs, surface matches in a three-tab dashboard.
 
-## Scoring: embed wide, cross-encode narrow, LLM explain smallest
+## Scoring: lean path (default)
 
-Three tiers of compute cost and precision:
+| Stage | What | Purpose |
+|-------|------|---------|
+| **Hard filters** | Location, country, experience, blocked titles | Drop wrong jobs before any ML |
+| **Bi-encoder** | `BAAI/bge-m3` on all survivors | Cosine fit vs resume |
+| **Ghost fold** | 9-signal detector × configurable weight | Penalise stale/suspicious postings |
+| **Feedback learner** | Star/dismiss embeddings (≥3 samples) | Personalise toward your taste |
+| **Match tier + cap** | Raw ≥0.40 embed + top **80** stay "match" | Shortlist, not 800 rows |
+| **Analyze LLM** | `qwen3:8b` on top **8** only | One-sentence "why fit / gap" in UI |
 
-| Stage | Model | Scope | Input size | Purpose |
-|-------|--------|-------|------------|---------|
-| **Bi-encoder** | `BAAI/bge-m3` | All jobs passing hard filters | ~1,500 char JD slice | Fast cosine recall — cast a wide net |
-| **Cross-encoder** | `BAAI/bge-reranker-v2-m3` | Top 60 by embed score | ~150 tokens (`job_signature`) | Pairwise rerank — precision on shortlist |
-| **Fit-gap LLM** | `qwen3:8b` (Ollama) | Top 10 matches | Profile + job signature | Human-readable gaps for UI only |
+**Cross-encoder rerank** is optional (`match.cross_encoder.enabled`, default **off**). Enable for sharper ordering on top-N; costs model download + cycle time. Not required for the product story.
 
-**Why not stack more heuristics?** ProfileFit and title-keyword boosts were fighting the embedding model. Cosine similarity bunches every PM-ish JD into 0.42–0.58; adding `-0.22 seniority` and `+0.20 title boost` penalties produced brittle, hard-to-debug scores (e.g. ScaleAI at 24%, Group PM at 100%). Cross-encoders are trained for relevance ranking and separate starred from dismissed pairs measurably better than another `preferences.py` rule.
-
-**What we removed from the score path:**
-- `ProfileFitScorer.adjust()` — dimensional scores (`seniority_fit`, `lane_fit`, etc.) remain on the payload for UI badges only
-- Title keyword **boosts** — blocked-discipline titles still hard-penalise (`engineer`, `designer`, …)
-- Full JD in analyze prompt — replaced with `job_signature`
-
-**What stays as user-controlled soft/hard gates:**
-- Location, country, experience (hard filters)
-- Salary, location preference (soft weights)
-- Ghost score (multiplicative fold into final score)
-- Feedback learner (embedding nudge from starred/dismissed, ≥3 samples)
+**Removed from score path:** ProfileFit penalties, title-keyword boosts, maybe-tier rows in the registry.
 
 ## Job signatures
 

@@ -1,0 +1,18 @@
+---
+description: Single canonical repo path — never edit stale copies
+alwaysApply: true
+---
+
+# Canonical repo (mandatory)
+
+**Only workspace:** `C:\Users\zonka\dev\projects\lantern`
+
+Before editing Python or UI code, confirm all of:
+
+1. Workspace root contains `.git` and `lantern/api/server.py`
+2. Path is **not** `C:\Users\zonka\AI_recruiter` (stale partial copy — no backend, no git)
+3. Machine layout: read `C:\Users\zonka\dev\AGENTS.md` first if paths are unclear
+
+If the workspace is wrong, **stop** and tell the user to use **File → Open Folder →** `dev\projects\lantern`. Do not patch files under `AI_recruiter`.
+
+Run `.\scripts\verify-canonical-repo.ps1` from repo root when unsure.

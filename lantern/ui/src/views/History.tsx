@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useCycleHistory, type CycleHistoryEntry } from "@/hooks/useCycleHistory";
+import { useCycleHistory } from "@/hooks/useCycleHistory";
 import { useLogs } from "@/hooks/useLogs";
 import { useStatus } from "@/hooks/useStatus";
 

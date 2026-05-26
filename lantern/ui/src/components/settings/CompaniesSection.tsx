@@ -235,7 +235,7 @@ export function CompaniesSection() {
 // public feed again, add the row + the fetcher back.
 const FAST_TIER_SOURCES: { key: keyof NonNullable<import("@/types/config").AppConfig["ingest"]>; label: string; note: string }[] = [
   { key: "enable_amazon", label: "Amazon", note: "JSON API" },
-  { key: "enable_google", label: "Google", note: "Public careers HTML, single-page (per their robots.txt)" },
+  { key: "enable_google", label: "Google", note: "Off recommended — each card needs LLM parse (qwen3:8b)" },
   { key: "enable_nvidia", label: "Nvidia", note: "Workday" },
   { key: "enable_adobe",  label: "Adobe",  note: "Workday" },
   { key: "enable_intel",  label: "Intel",  note: "Workday" },

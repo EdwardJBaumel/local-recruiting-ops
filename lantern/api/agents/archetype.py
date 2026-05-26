@@ -185,6 +185,9 @@ def classify_archetype(
             "rationale": f"title-regex classifier (no LLM call needed)",
         }
 
+    if not llm.task_llm_ready("default", config_models=config_models, explicit_model=model):
+        return _unclassified("ollama model not pulled (regex-only)")
+
     prompt = _build_prompt(title=title, description=description)
 
     try:

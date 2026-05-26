@@ -1,5 +1,7 @@
 # Agent guide — Lantern
 
+> **Machine layout:** read `C:\Users\zonka\dev\AGENTS.md` first if you need paths outside this repo.
+
 Instructions for Cursor Cloud Agents and other coding agents working on this repo.
 
 ## What this project is
@@ -35,7 +37,14 @@ lantern/api/     Python backend (orchestrator, agents/, core/, server.py)
 lantern/ui/      React frontend
 archive/         Frozen Sentinel v1 — reference only, do not port backward
 start.ps1        Windows dev launcher
+scripts/         verify-canonical-repo.ps1 — fail fast if wrong folder
 ```
+
+## Canonical workspace (avoid duplicate copies)
+
+**Open this repo in Cursor:** `C:\Users\zonka\dev\projects\lantern`
+
+Do **not** use `C:\Users\zonka\AI_recruiter` — it is a stale partial copy (no `.git`, no `server.py`). Agents editing there caused fixes to land in the wrong tree. Run `.\scripts\verify-canonical-repo.ps1` before `start.ps1` or when unsure.
 
 ## Conventions
 
@@ -80,7 +89,7 @@ Recommended: ship GitHub first, link it from resume and LinkedIn. Add a portfoli
 ## First-time GitHub push
 
 ```powershell
-cd c:\Users\zonka\projects\lantern
+cd c:\Users\zonka\dev\projects\lantern
 git init
 git add .
 git commit -m "Initial public release of Lantern"
