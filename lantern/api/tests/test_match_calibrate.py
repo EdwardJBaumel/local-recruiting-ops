@@ -20,7 +20,7 @@ def test_hits_anchor_points_exactly():
 
 def test_endpoints():
     assert calibrate_score(0.0) == 0.0
-    assert calibrate_score(1.0) == 1.0
+    assert calibrate_score(1.0) == 0.95
 
 
 def test_monotonic_non_decreasing_across_range():
@@ -34,10 +34,10 @@ def test_monotonic_non_decreasing_across_range():
 
 
 def test_interpolates_between_anchors():
-    # Halfway between (0.48, 0.46) and (0.50, 0.55) should land at the
-    # linear midpoint 0.505.
+    # Halfway between (0.48, 0.30) and (0.50, 0.40) should land at the
+    # linear midpoint 0.35.
     out = calibrate_score(0.49)
-    assert out == pytest.approx((0.46 + 0.55) / 2, abs=1e-6)
+    assert out == pytest.approx((0.30 + 0.40) / 2, abs=1e-6)
 
 
 def test_clamps_input_below_zero():

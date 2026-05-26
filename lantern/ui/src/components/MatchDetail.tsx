@@ -12,6 +12,7 @@ import { useTailorResume } from "@/hooks/useTailorResume";
 import { useUIStore } from "@/stores/ui";
 import type { MatchPayload } from "@/types/match";
 import { trimJobDescription, wasTrimmed } from "@/lib/jdTrim";
+import { isWorthLike } from "@/lib/matchWorth";
 import { rowKey } from "@/lib/rowKey";
 import {
   ExternalLink,
@@ -128,6 +129,7 @@ export function MatchDetail({ matches }: Props) {
   //             fake-detector module. Independent of Fit/Adjusted.
   const fitPct = Math.round(((job._match_score_pre_ghost ?? job._match_score) ?? 0) * 100);
   const adjPct = Math.round((job._match_score_display ?? job._match_score ?? 0) * 100);
+  const worthLike = isWorthLike(job);
   const ghostPenaltyPct = job._ghost_penalty ? Math.round(job._ghost_penalty * 100) : 0;
 
   const onGenerate = () => {
@@ -257,14 +259,16 @@ export function MatchDetail({ matches }: Props) {
           >
             <Star className={`h-4 w-4 ${job._starred ? "fill-current" : ""}`} />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => react.mutate({ url: job.url, reaction: "up" })}
-            title="Like"
-          >
-            <Heart className="h-4 w-4" />
-          </Button>
+          {worthLike && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => react.mutate({ url: job.url, reaction: "up" })}
+              title="Like"
+            >
+              <Heart className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"

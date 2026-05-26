@@ -80,7 +80,7 @@ Recommended: ship GitHub first, link it from resume and LinkedIn. Add a portfoli
 ## First-time GitHub push
 
 ```powershell
-cd c:\Users\zonka\AI_recruiter
+cd c:\Users\zonka\projects\lantern
 git init
 git add .
 git commit -m "Initial public release of Lantern"

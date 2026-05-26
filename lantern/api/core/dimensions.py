@@ -2,30 +2,44 @@
 Multi-dimensional match scoring.
 
 The primary `_match_score` on a packet is still the embedding-or-LLM
-similarity adjusted by the salary weight. That's good at capturing the
-full-text vibe of "does this role look like the candidate?", but it's
-opaque - a 72% score is hard to reason about.
+similarity adjusted by salary/location weights. Embeddings capture JD
+vocabulary overlap well but bunch every PM-ish role into the same
+cosine band — so this module derives resume-structured sub-scores for
+UI transparency (``_dimensions`` on match payloads).
 
-This module adds deterministic sub-scores a human can audit:
-  seniority_fit: ordinal distance on the candidate's seniority vs the job's
-  tech_fit:      fraction of the candidate's listed technologies present
-                 in the JD's technologies list + description
-  domain_fit:    fraction of the candidate's domains mentioned in the JD
-  years_fit:     how well the candidate's years of experience fit the
-                 expected band for the job's seniority
-  requirements_hit: a combined "how many must-haves are covered" view
+``ProfileFitScorer`` remains for tests and optional offline rescore;
+the live match path uses bi-encoder + cross-encoder rerank instead.
 
-Each sub-score is in [0.0, 1.0]. Missing profile data for a dimension
-returns None for that dimension so the UI can render "—" instead of
-pretending it scored zero.
+Sub-scores (each in [0.0, 1.0], None when data is missing):
+  seniority_fit: ordinal distance on profile seniority vs inferred job band
+  tech_fit:      fraction of profile technologies present in the JD
+  domain_fit:    fraction of profile domains mentioned in the JD
+  years_fit:     profile years vs the expected floor for the job band
+  requirements_fit: weighted blend of tech/domain/seniority for badges
 
-Used for transparency (Brief tab + match detail) and as an optional
-tiebreaker when the base score is close to threshold.
+All inputs come from the parsed resume profile — not hardcoded title lists.
 """
 from __future__ import annotations
 
 import re
 from typing import Optional
+
+# Strip seniority/role boilerplate from titles so the remainder is the
+# lane signal ("Platform", "Data Governance", "Billing") — compared
+# against the candidate fingerprint from their resume, not hardcoded lists.
+_PM_TITLE_BOILERPLATE = re.compile(
+    r"\b("
+    r"senior|staff|principal|lead|sr\.?|group|director|head|vp|vice president|"
+    r"product manager|program manager|technical program manager|tpm|"
+    r"forward deployed|enterprise|global|remote|intern|internship|"
+    r"junior|associate|graduate|new grad|entry[\s-]?level"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+_GENERIC_LANE_WORDS = frozenset({
+    "product", "manager", "management", "program", "technical", "the",
+    "and", "for", "with", "team", "systems", "system", "services", "service",
+})
 
 _SENIORITY_ORDER = {
     "intern": 0, "entry": 1, "junior": 1, "mid": 2, "senior": 3,
@@ -125,22 +139,101 @@ def _score_tech_overlap(profile_techs: list, payload: dict) -> Optional[float]:
     return round(hits / len(techs), 3)
 
 
-def _score_domain(profile_domains: list, payload: dict) -> Optional[float]:
-    """Fraction of the candidate's domains that are mentioned in the JD.
-    We match on substring (domains are short: 'fintech', 'devtools') so
-    no tokenisation worries."""
-    if not profile_domains:
-        return None
-    doms = [d.lower() for d in profile_domains if d]
-    if not doms:
-        return None
-    text = " ".join([
-        payload.get("description") or "",
+def _job_text(payload: dict) -> str:
+    return " ".join([
         payload.get("title") or "",
+        payload.get("description") or "",
         payload.get("company") or "",
+        " ".join(str(t) for t in (payload.get("technologies") or [])),
     ]).lower()
-    hits = sum(1 for d in doms if d in text)
-    return round(hits / len(doms), 3)
+
+
+def _profile_fingerprint(profile: dict) -> set[str]:
+    """Resume-derived tokens: domains, skills, stack, target-role lanes."""
+    tokens: set[str] = set()
+    for field in ("domains", "skills", "technologies"):
+        for item in profile.get(field) or []:
+            for part in re.split(r"[,/&+\-|]", str(item).lower()):
+                t = part.strip()
+                if len(t) >= 3 and t not in _GENERIC_LANE_WORDS:
+                    tokens.add(t)
+    for role in profile.get("target_roles") or []:
+        tokens.update(_title_lane_tokens(str(role)))
+    return tokens
+
+
+def _title_lane_tokens(title: str) -> set[str]:
+    """Non-boilerplate tokens left in a job title after stripping PM cruft."""
+    cleaned = _PM_TITLE_BOILERPLATE.sub(" ", (title or "").lower())
+    tokens: set[str] = set()
+    for segment in re.split(r"[,/|\-–—]+", cleaned):
+        for word in segment.split():
+            w = word.strip(".,()")
+            if len(w) >= 3 and w not in _GENERIC_LANE_WORDS:
+                tokens.add(w)
+    return tokens
+
+
+def _fingerprint_token_in_text(token: str, text: str) -> bool:
+    if not token or not text:
+        return False
+    if token in text:
+        return True
+    return any(
+        len(part) >= 3 and (token in part or part in token)
+        for part in text.split()
+    )
+
+
+def _fingerprint_token_matches(token: str, fingerprint: set[str]) -> bool:
+    if token in fingerprint:
+        return True
+    return any(
+        len(fp) >= 3 and (token in fp or fp in token)
+        for fp in fingerprint
+    )
+
+
+def _score_domain(profile: dict, payload: dict) -> Optional[float]:
+    """Share of the resume fingerprint (domains/skills/tech) found in the JD."""
+    fp = _profile_fingerprint(profile)
+    if not fp:
+        return None
+    text = _job_text(payload)
+    hits = sum(1 for t in fp if _fingerprint_token_in_text(t, text))
+    return round(hits / len(fp), 3)
+
+
+def _score_lane_fit(profile: dict, payload: dict) -> Optional[float]:
+    """How well the job title's lane tokens match the resume fingerprint."""
+    fp = _profile_fingerprint(profile)
+    title_tokens = _title_lane_tokens(payload.get("title") or "")
+    if not fp or not title_tokens:
+        return None
+    hits = sum(1 for t in title_tokens if _fingerprint_token_matches(t, fp))
+    return round(hits / len(title_tokens), 3)
+
+
+def _score_target_role_fit(profile: dict, payload: dict) -> Optional[float]:
+    """Overlap between parsed target_roles and the posting title."""
+    targets = [str(t).lower() for t in (profile.get("target_roles") or []) if t]
+    title = (payload.get("title") or "").lower()
+    if not targets or not title:
+        return None
+    best = 0.0
+    title_tokens = _title_lane_tokens(title) | set(title.split())
+    for target in targets:
+        target_tokens = _title_lane_tokens(target) | set(target.split())
+        if not target_tokens:
+            continue
+        if target in title or title in target:
+            return 1.0
+        overlap = sum(
+            1 for t in target_tokens
+            if t in title or any(t in tt or tt in t for tt in title_tokens)
+        )
+        best = max(best, overlap / len(target_tokens))
+    return round(best, 3) if best > 0 else 0.0
 
 
 def _score_years(profile_years: int, job_seniority: str) -> Optional[float]:
@@ -168,12 +261,19 @@ def _score_years(profile_years: int, job_seniority: str) -> Optional[float]:
     return round(py / floor, 3)
 
 
-def _combine_requirements(tech_fit: Optional[float], domain_fit: Optional[float],
-                          seniority_fit: Optional[float]) -> Optional[float]:
-    """A simple weighted blend of the three transparency signals, treating
-    None as "not scored" (average over what we have). Used as a single
-    headline number for badges where space is tight."""
-    parts = [(0.5, tech_fit), (0.3, domain_fit), (0.2, seniority_fit)]
+def _combine_requirements(
+    tech_fit: Optional[float],
+    domain_fit: Optional[float],
+    seniority_fit: Optional[float],
+    lane_fit: Optional[float] = None,
+) -> Optional[float]:
+    """Weighted blend for headline badges."""
+    parts = [
+        (0.30, tech_fit),
+        (0.35, domain_fit),
+        (0.20, lane_fit),
+        (0.15, seniority_fit),
+    ]
     total_weight = 0.0
     value = 0.0
     for w, s in parts:
@@ -186,26 +286,144 @@ def _combine_requirements(tech_fit: Optional[float], domain_fit: Optional[float]
     return round(value / total_weight, 3)
 
 
+def merge_profile_prefs(prefs: dict, profile: dict | None) -> dict:
+    """Fill scoring prefs from the parsed resume when the user has not set them.
+
+    Keeps explicit Settings values — only backfills zeros/blanks from the
+    resume so hard filters (trapdoor, band gap) use the same signal as the
+    embedding profile text."""
+    merged = dict(prefs or {})
+    if not profile or not isinstance(profile, dict) or profile.get("error"):
+        return merged
+    try:
+        cfg_years = int(merged.get("years_experience") or 0)
+    except (TypeError, ValueError):
+        cfg_years = 0
+    prof_years = profile.get("years_experience")
+    if cfg_years <= 0 and prof_years is not None:
+        try:
+            merged["years_experience"] = int(prof_years)
+        except (TypeError, ValueError):
+            pass
+    if not (merged.get("current_level") or "").strip():
+        prof_sen = (profile.get("seniority") or "").strip()
+        if prof_sen:
+            merged["current_level"] = prof_sen
+    return merged
+
+
+def _infer_job_seniority_from_payload(payload: dict) -> str:
+    """Prefer title-aware band inference (Group PM → director, etc.)."""
+    from core.preferences import _infer_job_level
+    level = _infer_job_level(payload)
+    if level:
+        return level
+    return _infer_job_seniority(payload)
+
+
 def score_dimensions(profile: dict, payload: dict) -> dict:
     """Produce all sub-scores for a single job. Profile is the structured
     dict from resume_profile; payload is the job packet payload."""
     if not profile or not isinstance(profile, dict):
         return {}
     profile_seniority = (profile.get("seniority") or "").strip().lower()
-    job_seniority = _infer_job_seniority(payload)
+    job_seniority = _infer_job_seniority_from_payload(payload)
 
     seniority_fit = _score_seniority(profile_seniority, job_seniority)
     tech_fit = _score_tech_overlap(profile.get("technologies") or [], payload)
-    domain_fit = _score_domain(profile.get("domains") or [], payload)
+    domain_fit = _score_domain(profile, payload)
+    lane_fit = _score_lane_fit(profile, payload)
+    target_role_fit = _score_target_role_fit(profile, payload)
     years_fit = _score_years(int(profile.get("years_experience") or 0), job_seniority)
-    headline = _combine_requirements(tech_fit, domain_fit, seniority_fit)
+    headline = _combine_requirements(tech_fit, domain_fit, seniority_fit, lane_fit)
 
     return {
         "seniority_fit": seniority_fit,
         "tech_fit": tech_fit,
         "domain_fit": domain_fit,
+        "lane_fit": lane_fit,
+        "target_role_fit": target_role_fit,
         "years_fit": years_fit,
         "requirements_fit": headline,
         "profile_seniority": profile_seniority or None,
         "job_seniority": job_seniority or None,
+        "profile_fingerprint": sorted(_profile_fingerprint(profile))[:12],
     }
+
+
+class ProfileFitScorer:
+    """Resume-driven score adjustment from parsed profile fields.
+
+    Uses seniority/years bands, domain+skill+tech fingerprint overlap with
+    the JD, and title-lane alignment — all derived from the uploaded resume.
+    """
+
+    def __init__(self, profile: dict | None, weight: float = 1.0):
+        self.profile = profile if profile and not profile.get("error") else None
+        try:
+            self.weight = float(weight or 1.0)
+        except (TypeError, ValueError):
+            self.weight = 1.0
+
+    @property
+    def active(self) -> bool:
+        return bool(self.profile) and self.weight > 0
+
+    def adjust(self, base_score: float, payload: dict) -> tuple[float, float, str]:
+        if not self.active:
+            return base_score, 0.0, ""
+        dims = score_dimensions(self.profile, payload)
+        if not dims:
+            return base_score, 0.0, ""
+
+        delta = 0.0
+        parts: list[str] = []
+
+        seniority_fit = dims.get("seniority_fit")
+        if seniority_fit is not None:
+            delta -= (1.0 - seniority_fit) * 0.22 * self.weight
+            if seniority_fit < 0.5:
+                parts.append(
+                    f"seniority {dims.get('job_seniority')} vs "
+                    f"{dims.get('profile_seniority')}"
+                )
+
+        years_fit = dims.get("years_fit")
+        if years_fit is not None and years_fit < 1.0:
+            delta -= (1.0 - years_fit) * 0.18 * self.weight
+            if years_fit < 0.75:
+                parts.append(
+                    f"{self.profile.get('years_experience')} years vs "
+                    f"{dims.get('job_seniority')} band"
+                )
+
+        lane_fit = dims.get("lane_fit")
+        if lane_fit is not None and lane_fit < 0.25:
+            delta -= (0.25 - lane_fit) * 0.38 * self.weight
+            parts.append(f"title lane {lane_fit:.0%} vs your profile")
+
+        domain_fit = dims.get("domain_fit")
+        if domain_fit is not None:
+            if domain_fit < 0.20:
+                delta -= (0.20 - domain_fit) * 0.32 * self.weight
+                parts.append(f"domains/skills {domain_fit:.0%} in JD")
+            elif domain_fit >= 0.45:
+                delta += (domain_fit - 0.45) * 0.10 * self.weight
+
+        tech_fit = dims.get("tech_fit")
+        if tech_fit is not None:
+            delta += (tech_fit - 0.40) * 0.12 * self.weight
+            if tech_fit < 0.25:
+                parts.append(f"stack overlap {tech_fit:.0%}")
+
+        target_role_fit = dims.get("target_role_fit")
+        if target_role_fit is not None and target_role_fit >= 0.6:
+            delta += (target_role_fit - 0.6) * 0.08 * self.weight
+
+        delta = max(-0.45, min(0.10, delta))
+        if abs(delta) < 0.005:
+            return base_score, 0.0, ""
+
+        from core.preferences import _clamp
+        reason = "profile: " + "; ".join(parts) if parts else "profile aligned"
+        return _clamp(base_score + delta), delta, reason

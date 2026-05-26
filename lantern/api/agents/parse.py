@@ -89,6 +89,9 @@ class ParseAgent:
             # came back as bare tracking codes, dedupe tech list.
             job_data = text_clean.sanitise_job(job_data)
 
+            from core.job_signature import attach_job_signature
+            attach_job_signature(job_data)
+
             # Attach source metadata
             job_data["_source_url"] = source_url
             job_data["_card_index"] = packet.payload.get("card_index")

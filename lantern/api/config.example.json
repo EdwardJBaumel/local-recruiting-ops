@@ -80,10 +80,17 @@
     "_comment_model": "Parse is mechanical extraction (title / company / location / salary band / yoe). qwen3:8b is ~3x faster than the 14B and the field-level accuracy difference is in the noise on real JD copy.",
     "model": "qwen3:8b"
   },
-  "match": {
+    "match": {
     "model": "qwen3:14b",
     "threshold": 0.4,
     "embed_model": "BAAI/bge-m3",
+    "cross_encoder": {
+      "_comment": "Embed wide (all jobs), cross-encode narrow (top-N). Pairs with bge-m3. No Ollama. Disable if VRAM/RAM tight.",
+      "enabled": true,
+      "model": "BAAI/bge-reranker-v2-m3",
+      "top_n": 60,
+      "blend_weight": 0.55
+    },
     "tiers": {
       "_comment": "bge-m3 cross-domain cosine sim usually sits in 0.28-0.45. The match bar at 0.32 keeps 'any PM role worth a look' flowing through; 0.22 maybe-tier catches weaker signal without drowning the UI.",
       "embed": { "match": 0.32, "maybe": 0.22 },
@@ -93,10 +100,10 @@
     "profile_text": ""
   },
   "analyze": {
-    "_comment_model": "qwen3:14b — shares VRAM resident with match-LLM-fallback + digest + cover-letter, so Ollama doesn't swap between tasks. qwen3:14b is on top of the 14B leaderboard for reasoning (MMLU 76.8, GSM8K 88.4, HumanEval 74.5). Drop to qwen3:8b if you have <12 GB VRAM.",
-    "_comment_top_n": "Top-N by match score get a fit/gap LLM call. 5 is enough for the SkillGap aggregation; bump to 10 if you want richer per-row analysis at ~2x the analyze wall time.",
-    "top_n": 5,
-    "model": "qwen3:14b"
+    "_comment_model": "qwen3:8b keeps VRAM free while cross-encoder rerank runs. Uses job_signature (~150 tokens) not full JD.",
+    "_comment_top_n": "Top-N by match score get a fit/gap LLM call. 10 is the UI sweet spot for MatchDetail + Brief SkillGap.",
+    "top_n": 10,
+    "model": "qwen3:8b"
   },
   "digest": {
     "_comment_model": "Shares qwen3:14b VRAM with analyze. Was gemma3:12b.",
@@ -123,6 +130,8 @@
     "years_experience": 0,
     "current_level": "",
     "years_weight": 0.04,
+    "level_weight": 0.16,
+    "_comment_level_weight": "Soft penalty per seniority band when the job title outranks your profile (e.g. Staff PM vs your Senior band costs ~0.16 raw on the match score). Set current_level in Settings for precision; otherwise inferred from years_experience.",
     "max_level_gap": 3,
     "trapdoor_enabled": true,
     "_comment_freshness": "Per company-size tier. Mega = Amazon/Google/Workday; Large = Stripe/Databricks/OpenAI; Growth = everything else. See lantern/ui/src/lib/companyTier.ts for the membership lists.",

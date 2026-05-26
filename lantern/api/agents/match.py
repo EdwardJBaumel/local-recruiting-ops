@@ -3,11 +3,16 @@
 Computes cosine similarity between user profile and parsed jobs.
 Uses sentence-transformers if available, falls back to LLM-based scoring.
 
-Preferences pipeline (per cycle):
-  1. LocationFilter (hard): drop jobs whose location violates user rules.
-  2. Scorer (embedding or LLM): produce base match score.
-  3. SalaryScorer (soft): adjust score by salary_weight given salary_floor.
-  4. Threshold: mark _is_match if final score >= threshold.
+Scoring pipeline (hybrid architecture):
+  1. Hard filters: country, location, experience, blocked titles.
+  2. Bi-encoder (bge-m3): score all jobs — embed wide.
+  3. Cross-encoder rerank: top-N by embed score — cross-encode narrow.
+  4. Soft preference weights: location, salary, years (user config only).
+  5. Ghost fold + tier assignment.
+
+Fit signal comes from embeddings + cross-encoder, not handcrafted
+ProfileFit / title-keyword penalties. Dimensional sub-scores remain on
+the payload for UI badges only.
 """
 
 import logging
@@ -17,9 +22,12 @@ from core import llm
 from core.preferences import (
     LocationFilter, LocationScorer, SalaryScorer,
     ExperienceFilter, ExperienceScorer, CountryFilter, TitleScorer,
+    SeniorityScorer,
     describe as describe_prefs,
 )
 from core import dimensions as dim_scorer
+from core.dimensions import merge_profile_prefs
+from core.cross_encoder_rerank import CrossEncoderReranker, normalize_rerank_scores
 from core import fake_detector
 from core import feedback_learner as _feedback
 
@@ -35,30 +43,25 @@ logger = logging.getLogger("lantern.match")
 # is preserved. Raw score is still kept on the payload for downstream
 # tier logic and debugging.
 #
-# v2 tuning (2026-04): user feedback was "everything sits around 50%,
-# I can't tell the good ones apart". The clustering zone is 0.45-0.58
-# raw, so we spent more anchor budget there to stretch that slice
-# across ~35-80% of the display range. The previous table mapped that
-# same slice to ~15-75% which sounded wide on paper but bunched all
-# the actual results into a tight ~30-50% display window because the
-# real mass sits at 0.48-0.54. Also added a 0.45 anchor specifically
-# so a "decent but not strong" PM fit lands near 35% display (matches
-# the user's intuition that "a 34% match is pretty solid").
+# v3 tuning (2026-05): scores still read too high on weak PM-ish fits
+# because bge-m3 cosine clusters 0.42-0.56 for any related role. Shift
+# the working window down and spend more anchor budget between 0.45 and
+# 0.58 so a 0.10 raw delta becomes ~20 display points instead of ~10.
 _CALIBRATION_ANCHORS = [
     (0.00, 0.00),
-    (0.30, 0.06),
-    (0.38, 0.15),
-    (0.42, 0.24),
-    (0.45, 0.35),   # "a 34% match is pretty solid"
-    (0.48, 0.46),
-    (0.50, 0.55),
-    (0.52, 0.64),
-    (0.55, 0.75),
-    (0.58, 0.83),
-    (0.62, 0.90),
-    (0.68, 0.96),
-    (0.75, 0.99),
-    (1.00, 1.00),
+    (0.30, 0.04),
+    (0.38, 0.09),
+    (0.42, 0.12),
+    (0.45, 0.20),
+    (0.48, 0.30),
+    (0.50, 0.40),
+    (0.52, 0.52),
+    (0.55, 0.68),
+    (0.58, 0.80),
+    (0.62, 0.86),
+    (0.68, 0.91),
+    (0.75, 0.94),
+    (1.00, 0.95),
 ]
 
 
@@ -232,12 +235,16 @@ class MatchAgent:
         # orchestrator can refresh via set_preferences() after the user
         # edits them in the UI without bouncing the process.
         prefs = config.get("preferences", {}) or {}
-        self.location_filter = LocationFilter(prefs)
-        self.location_scorer = LocationScorer(prefs)
-        self.salary_scorer = SalaryScorer(prefs)
-        self.experience_filter = ExperienceFilter(prefs)
-        self.experience_scorer = ExperienceScorer(prefs)
-        self.country_filter = CountryFilter(prefs)
+        self._prefs = prefs
+        profile_struct = config.get("profile_struct") or None
+        effective_prefs = merge_profile_prefs(prefs, profile_struct)
+        self.location_filter = LocationFilter(effective_prefs)
+        self.location_scorer = LocationScorer(effective_prefs)
+        self.salary_scorer = SalaryScorer(effective_prefs)
+        self.experience_filter = ExperienceFilter(effective_prefs)
+        self.experience_scorer = ExperienceScorer(effective_prefs)
+        self.seniority_scorer = SeniorityScorer(effective_prefs)
+        self.country_filter = CountryFilter(effective_prefs)
         # TitleScorer reads role_keywords off the match config (plumbed
         # from config.ingest.role_keywords by the orchestrator) so the
         # boost list stays in one place.
@@ -251,12 +258,7 @@ class MatchAgent:
         self._blocked_title_keywords = list(
             config.get("blocked_title_keywords") or []
         )
-        self.title_scorer = TitleScorer({
-            "role_keywords": self._role_keywords,
-            "title_weight": self._title_weight,
-            "title_penalty": self._title_penalty,
-            "blocked_title_keywords": self._blocked_title_keywords,
-        })
+        self.title_scorer = self._build_title_scorer(effective_prefs, profile_struct)
 
         # Per-match latency ring buffer (ms). Kept small so a long-running
         # process doesn't grow memory unbounded.
@@ -333,6 +335,22 @@ class MatchAgent:
                     logger.warning("Embedding cache disabled: %s", e)
                     self.embedding_cache = None
 
+        # Cross-encoder reranker (top-N refinement after bi-encoder pass).
+        ce_cfg = config.get("cross_encoder") or {}
+        self.reranker = CrossEncoderReranker(
+            model_name=ce_cfg.get("model"),
+            top_n=ce_cfg.get("top_n", 60),
+            blend_weight=ce_cfg.get("blend_weight", 0.55),
+            enabled=ce_cfg.get("enabled", True),
+        )
+        if self.reranker.active:
+            logger.info(
+                "Cross-encoder rerank enabled: model=%s top_n=%d blend=%.2f",
+                self.reranker.model_name, self.reranker.top_n, self.reranker.blend_weight,
+            )
+        elif ce_cfg.get("enabled", True):
+            logger.info("Cross-encoder rerank requested but CrossEncoder unavailable")
+
         # Seed the feedback learner from the user's profile text the first
         # time we have both an embedding model and a learner. Subsequent
         # reseeds (on resume upload or keyword edit) are driven by
@@ -340,7 +358,33 @@ class MatchAgent:
         # the learner contributes nothing until the user stars ≥3 jobs.
         self._reseed_feedback_from_current_state(config.get("role_keywords"))
 
-        logger.info("MatchAgent preferences: %s", describe_prefs(prefs))
+        logger.info("MatchAgent preferences: %s", describe_prefs(effective_prefs))
+
+    def _build_title_scorer(self, prefs: dict, profile_struct: dict | None) -> TitleScorer:
+        """Block-only title gate. Fit comes from embed + cross-encoder rerank."""
+        del profile_struct  # kept for API stability with callers
+        return TitleScorer({
+            "role_keywords": [],
+            "title_weight": 0.0,
+            "title_penalty": self._title_penalty,
+            "blocked_title_keywords": self._blocked_title_keywords,
+            "years_experience": prefs.get("years_experience"),
+            "current_level": prefs.get("current_level"),
+        })
+
+    def _rebuild_preference_scorers(self, prefs: dict | None = None):
+        """Rebuild filters/scorers after prefs or profile change."""
+        prefs = prefs if prefs is not None else self._prefs
+        self._prefs = prefs or {}
+        effective = merge_profile_prefs(self._prefs, self.profile_struct)
+        self.location_filter = LocationFilter(effective)
+        self.location_scorer = LocationScorer(effective)
+        self.salary_scorer = SalaryScorer(effective)
+        self.experience_filter = ExperienceFilter(effective)
+        self.experience_scorer = ExperienceScorer(effective)
+        self.seniority_scorer = SeniorityScorer(effective)
+        self.country_filter = CountryFilter(effective)
+        self.title_scorer = self._build_title_scorer(effective, self.profile_struct)
 
     # ──────────────────────────────────────────────────────────────
     # GPU-availability warning
@@ -445,29 +489,16 @@ class MatchAgent:
 
     def set_preferences(self, prefs: dict):
         """Swap the location/salary/experience preferences without restarting."""
-        prefs = prefs or {}
-        self.location_filter = LocationFilter(prefs)
-        self.location_scorer = LocationScorer(prefs)
-        self.salary_scorer = SalaryScorer(prefs)
-        self.experience_filter = ExperienceFilter(prefs)
-        self.experience_scorer = ExperienceScorer(prefs)
-        self.country_filter = CountryFilter(prefs)
-        # Preserve the most recent title-scorer settings on hot-apply.
-        # (Role + blocked title keywords come from config.ingest /
-        # config.preferences, not the match preferences blob, so they
-        # don't change on a preferences save — only a full config reload.)
-        self.title_scorer = TitleScorer({
-            "role_keywords": self._role_keywords,
-            "title_weight": self._title_weight,
-            "title_penalty": self._title_penalty,
-            "blocked_title_keywords": self._blocked_title_keywords,
-        })
-        logger.info("MatchAgent preferences updated: %s", describe_prefs(prefs))
+        self._rebuild_preference_scorers(prefs or {})
+        logger.info("MatchAgent preferences updated: %s", describe_prefs(
+            merge_profile_prefs(self._prefs, self.profile_struct),
+        ))
 
     def set_profile_struct(self, profile: dict | None):
         """Swap the structured profile between cycles. Safe to call with
         None to disable dimensional scoring."""
         self.profile_struct = profile or None
+        self._rebuild_preference_scorers()
 
     def set_fake_threshold(self, preset_or_value):
         """Hot-swap the ghost-job suspicion threshold. Accepts a preset
@@ -674,6 +705,29 @@ class MatchAgent:
         reasoning = result.get("reasoning", "")
         return score, reasoning
 
+    # Fields recomputed on every match() pass. Stripped from the incoming
+    # payload so a re-score (or registry rescore) never carries stale
+    # adjustment metadata forward from a previous scoring version.
+    _RECOMPUTED_MATCH_KEYS = frozenset({
+        "_match_score_raw", "_match_score", "_match_score_display",
+        "_match_score_pre_ghost", "_match_score_pre_learned",
+        "_match_reasoning", "_match_provenance", "_match_tier",
+        "_match_tier_cutoffs", "_is_match", "_is_suspect",
+        "_feedback_adjustment", "_title_adjustment", "_title_reason",
+        "_seniority_adjustment", "_seniority_reason",
+        "_profile_adjustment", "_profile_reason",
+        "_match_score_pre_rerank", "_rerank_score_raw", "_rerank_score", "_rerank_applied",
+        "_dimensions",
+        "_location_adjustment", "_location_reason",
+        "_salary_adjustment", "_salary_reason",
+        "_years_adjustment", "_years_reason",
+        "_ghost_penalty", "_ghost_weight", "_ghost_band", "_learned_bonus",
+        "_fake",
+    })
+
+    def _fresh_match_payload(self, source: dict) -> dict:
+        return {k: v for k, v in source.items() if k not in self._RECOMPUTED_MATCH_KEYS}
+
     def match(self, packet: SentinelPacket, title_index: dict | None = None,
               precomputed_embedding=None) -> SentinelPacket:
         """Score a single job packet. Location filter applied upstream in run().
@@ -732,12 +786,17 @@ class MatchAgent:
                 logger.warning("feedback adjust failed: %s", e)
                 feedback_telemetry = None
 
-        # Soft weights compose in a deterministic order so score math is
-        # reproducible: title -> location -> salary -> years. Title runs
-        # FIRST so the keyword boost stacks cleanly onto the base embedding
-        # score before other deltas are layered on. Each returns the
-        # running score plus a signed delta for telemetry / UI hover.
+        # Soft weights: blocked-title penalty -> location -> salary -> years.
+        # Fit (seniority, lane, domain) is handled by embed + cross-encoder.
         adjusted, title_delta, title_reason = self.title_scorer.adjust(score, packet.payload)
+        profile_delta = 0.0
+        profile_reason = ""
+        seniority_delta = 0.0
+        seniority_reason = ""
+        if not self.profile_struct and self.seniority_scorer.active:
+            adjusted, seniority_delta, seniority_reason = self.seniority_scorer.adjust(
+                adjusted, packet.payload,
+            )
         adjusted, location_delta, location_reason = self.location_scorer.adjust(adjusted, packet.payload)
         adjusted, salary_delta, salary_reason = self.salary_scorer.adjust(adjusted, packet.payload)
         adjusted, years_delta, years_reason = self.experience_scorer.adjust(adjusted, packet.payload)
@@ -768,7 +827,7 @@ class MatchAgent:
         display_score = calibrate_score(adjusted) if provenance == "embed" else adjusted
 
         payload = {
-            **packet.payload,
+            **self._fresh_match_payload(packet.payload),
             "_match_score_raw": score,
             "_match_score": round(adjusted, 4),
             "_match_score_display": round(display_score, 4),
@@ -783,6 +842,12 @@ class MatchAgent:
         if title_delta:
             payload["_title_adjustment"] = round(title_delta, 4)
             payload["_title_reason"] = title_reason
+        if seniority_delta:
+            payload["_seniority_adjustment"] = round(seniority_delta, 4)
+            payload["_seniority_reason"] = seniority_reason
+        if profile_delta:
+            payload["_profile_adjustment"] = round(profile_delta, 4)
+            payload["_profile_reason"] = profile_reason
         if location_delta:
             payload["_location_adjustment"] = round(location_delta, 4)
             payload["_location_reason"] = location_reason
@@ -793,9 +858,7 @@ class MatchAgent:
             payload["_years_adjustment"] = round(years_delta, 4)
             payload["_years_reason"] = years_reason
 
-        # Dimensional sub-scores for transparency - independent of the base
-        # score, purely derived from the structured profile. Skipped when
-        # no structured profile is loaded.
+        # Dimensional sub-scores for UI badges only — not folded into score.
         if self.profile_struct:
             try:
                 dims = dim_scorer.score_dimensions(self.profile_struct, packet.payload)
@@ -906,6 +969,75 @@ class MatchAgent:
             priority=Priority.HIGH if adjusted >= self.threshold else Priority.LOW,
             trace_id=packet.trace_id,
         )
+
+    def rerank_results(self, results: list[SentinelPacket]) -> list[SentinelPacket]:
+        """Cross-encoder rerank on top-N by bi-encoder score.
+
+        Called once per cycle after both match passes complete. Updates
+        scores/tiers in place and sets ``_rerank_applied`` on touched rows.
+        """
+        if not results or not self.reranker.active or not self.profile_text.strip():
+            return results
+
+        ranked = sorted(
+            enumerate(results),
+            key=lambda item: float((item[1].payload or {}).get("_match_score") or 0.0),
+            reverse=True,
+        )
+        top_slots = ranked[: self.reranker.top_n]
+        if len(top_slots) < 2:
+            return results
+
+        top_indices = [i for i, _ in top_slots]
+        docs = [
+            CrossEncoderReranker.document_from_payload(results[i].payload or {})
+            for i in top_indices
+        ]
+        raw_scores = self.reranker.rerank_pairs(self.profile_text, docs)
+        norm_scores = normalize_rerank_scores(raw_scores)
+
+        for slot, idx in enumerate(top_indices):
+            result = results[idx]
+            payload = dict(result.payload or {})
+            embed_score = float(payload.get("_match_score") or 0.0)
+            rerank_norm = norm_scores[slot]
+            blended = self.reranker.blend_score(embed_score, rerank_norm)
+            provenance = payload.get("_match_provenance") or "embed"
+
+            payload["_match_score_pre_rerank"] = embed_score
+            payload["_rerank_score_raw"] = round(raw_scores[slot], 4)
+            payload["_rerank_score"] = round(rerank_norm, 4)
+            payload["_match_score"] = blended
+            payload["_rerank_applied"] = True
+            payload["_match_score_display"] = round(
+                calibrate_score(blended) if provenance == "embed" else blended,
+                4,
+            )
+
+            tier = "none"
+            if provenance in self.tier_cutoffs:
+                cutoffs = self.tier_cutoffs[provenance]
+                if blended >= cutoffs["match"]:
+                    tier = "match"
+                elif blended >= cutoffs["maybe"]:
+                    tier = "maybe"
+            payload["_match_tier"] = tier
+            payload["_is_match"] = tier == "match"
+
+            results[idx] = SentinelPacket(
+                sender=result.sender,
+                payload_type=result.payload_type,
+                payload=payload,
+                priority=Priority.HIGH if tier == "match" else result.priority,
+                trace_id=result.trace_id,
+            )
+
+        logger.info(
+            "Cross-encoder reranked top %d/%d (model=%s blend=%.2f)",
+            len(top_indices), len(results),
+            self.reranker.model_name, self.reranker.blend_weight,
+        )
+        return results
 
     def run(self, valid_packets: list[SentinelPacket],
             on_scored=None) -> list[SentinelPacket]:

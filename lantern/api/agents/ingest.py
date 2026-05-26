@@ -425,6 +425,8 @@ class IngestAgent:
                 except Exception:
                     # Never let salary extraction kill a packet.
                     pass
+        from core.job_signature import attach_job_signature
+        attach_job_signature(job)
         return SentinelPacket(
             sender=Sender.INGEST,
             payload_type=PayloadType.JSON_JOB,

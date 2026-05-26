@@ -18,11 +18,8 @@ FIT_GAP_PROMPT = """You are a career fit analyzer. Compare this candidate profil
 CANDIDATE PROFILE:
 {profile}
 
-JOB LISTING:
-Title: {title}
-Company: {company}
-Description: {description}
-Technologies: {technologies}
+JOB (compact signature):
+{signature}
 
 Respond with ONLY a JSON object (no markdown, no explanation):
 {{
@@ -59,12 +56,16 @@ class FitGapAnalyzer:
         title = payload.get("title", "N/A")
         company = payload.get("company", "N/A")
 
+        from core.job_signature import build_job_signature
+        signature = (
+            payload.get("job_signature")
+            or build_job_signature(payload)
+            or f"{title} @ {company}"
+        )
+
         prompt = FIT_GAP_PROMPT.format(
-            profile=self.profile,
-            title=title,
-            company=company,
-            description=payload.get("description", "N/A"),
-            technologies=", ".join(payload.get("technologies", [])) or "Not specified",
+            profile=self.profile[:4000],
+            signature=signature,
         )
 
         try:

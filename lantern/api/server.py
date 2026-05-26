@@ -60,6 +60,51 @@ def load_json(path, default=None):
     return default
 
 
+def _log_file_path() -> Path:
+    cfg = load_json(CONFIG_FILE, {}) or {}
+    rel = (cfg.get("logging") or {}).get("file", "logs/lantern.log")
+    p = Path(rel)
+    if not p.is_absolute():
+        p = app_paths.runtime_dir() / p
+    return p
+
+
+def _tail_text_lines(path: Path, n: int) -> list[str]:
+    """Return the last *n* lines without reading the whole file."""
+    if not path.is_file():
+        return []
+    n = max(1, min(int(n), 5000))
+    block = 8192
+    with path.open("rb") as fh:
+        fh.seek(0, os.SEEK_END)
+        size = fh.tell()
+        data = b""
+        while size > 0 and data.count(b"\n") <= n:
+            read_size = min(block, size)
+            size -= read_size
+            fh.seek(size)
+            data = fh.read(read_size) + data
+    lines = data.decode("utf-8", errors="replace").splitlines()
+    return lines[-n:]
+
+
+def _refresh_match_display(row: dict) -> None:
+    """Re-derive calibrated display scores from stored raw fit scores."""
+    score = row.get("_match_score")
+    if score is None:
+        return
+    try:
+        raw = float(score)
+    except (TypeError, ValueError):
+        return
+    provenance = row.get("_match_provenance") or "embed"
+    if provenance == "embed":
+        from agents.match import calibrate_score
+        row["_match_score_display"] = round(calibrate_score(raw), 4)
+    else:
+        row["_match_score_display"] = round(raw, 4)
+
+
 # mtime-keyed parse cache for the small set of JSON files that
 # /api/status reads on every 2-second heartbeat poll. The same
 # cycle_times.json gets re-parsed ~30 times per minute even when
@@ -202,6 +247,19 @@ class SentinelHandler(BaseHTTPRequestHandler):
 
         if path == "/api/market":
             self._send_json(load_json(MARKET_FILE, []))
+
+        elif path == "/api/logs":
+            try:
+                n = int(parse_qs(parsed.query).get("n", ["400"])[0])
+            except Exception:
+                n = 400
+            log_path = _log_file_path()
+            lines = _tail_text_lines(log_path, n)
+            self._send_json({
+                "path": str(log_path),
+                "lines": lines,
+                "exists": log_path.is_file(),
+            })
 
         elif path == "/api/cycle-history":
             # Timeline for the History tab. Same source as status averages,
@@ -367,6 +425,7 @@ class SentinelHandler(BaseHTTPRequestHandler):
                     row["_last_seen_at"] = e.get("last_seen_at")
                     row["_cycle_count"] = e.get("cycle_count")
                     row["_profile_version"] = e.get("profile_version")
+                    _refresh_match_display(row)
                     out.append(row)
             else:
                 # Fallback path - original behaviour.
@@ -579,6 +638,7 @@ class SentinelHandler(BaseHTTPRequestHandler):
                     "GET  /api/status",
                     "GET  /api/market",
                     "GET  /api/cycle-history",
+                    "GET  /api/logs",
                     "GET  /api/matches",
                     "GET  /api/config",
                     "GET  /api/resume", "GET  /api/resume?full=1",

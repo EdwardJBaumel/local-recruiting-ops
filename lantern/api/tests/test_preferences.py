@@ -10,10 +10,12 @@ import pytest
 
 from core.preferences import (
     TitleScorer,
+    SeniorityScorer,
     SalaryScorer,
     ExperienceScorer,
     extract_salary_usd,
     title_has_blocked_keyword,
+    _infer_user_level,
 )
 
 
@@ -141,6 +143,88 @@ def test_title_scorer_no_keyword_match_no_change():
     scorer = TitleScorer({"role_keywords": ["product manager"], "title_weight": 0.2})
     score, delta, _ = scorer.adjust(0.5, {"title": "Data Scientist"})
     assert (score, delta) == (0.5, 0.0)
+
+
+def test_title_scorer_skips_boost_when_title_above_user_level():
+    scorer = TitleScorer({
+        "role_keywords": ["product manager"],
+        "title_weight": 0.2,
+        "years_experience": 6,
+        "current_level": "senior",
+    })
+    score, delta, reason = scorer.adjust(0.5, {"title": "Staff Product Manager"})
+    assert (score, delta) == (0.5, 0.0)
+    assert reason == ""
+
+
+def test_title_scorer_still_boosts_at_user_level():
+    scorer = TitleScorer({
+        "role_keywords": ["product manager"],
+        "title_weight": 0.2,
+        "years_experience": 6,
+        "current_level": "senior",
+    })
+    score, delta, _ = scorer.adjust(0.5, {"title": "Senior Product Manager"})
+    assert delta == pytest.approx(0.2)
+    assert score == pytest.approx(0.7)
+
+
+def test_infer_user_level_from_years_when_level_unset():
+    assert _infer_user_level({"years_experience": 5}) == "senior"
+    assert _infer_user_level({"years_experience": 9}) == "staff"
+    assert _infer_user_level({"years_experience": 2}) == "mid"
+
+
+def test_seniority_scorer_penalises_staff_above_senior_user():
+    scorer = SeniorityScorer({"years_experience": 6, "current_level": "senior", "level_weight": 0.16})
+    score, delta, reason = scorer.adjust(0.52, {"title": "Staff Product Manager, Platform"})
+    assert delta == pytest.approx(-0.16)
+    assert score == pytest.approx(0.36)
+    assert "1 band" in reason
+
+
+def test_seniority_scorer_inactive_without_profile():
+    scorer = SeniorityScorer({})
+    assert scorer.active is False
+    score, delta, reason = scorer.adjust(0.5, {"title": "Staff Product Manager"})
+    assert (score, delta, reason) == (0.5, 0.0, "")
+
+
+def test_infer_job_level_title_staff_beats_tagged_senior():
+    from core.preferences import _infer_job_level
+    level = _infer_job_level({
+        "title": "Staff Product Manager, Growth",
+        "seniority": "senior",
+    })
+    assert level == "staff"
+
+
+def test_infer_job_level_group_product_manager_is_director():
+    from core.preferences import _infer_job_level
+    assert _infer_job_level({"title": "Group Product Manager, Ads"}) == "director"
+
+
+def test_title_scorer_boosts_role_keyword_without_profile_path():
+    scorer = TitleScorer({"role_keywords": ["product manager"], "title_weight": 0.2})
+    score, delta, reason = scorer.adjust(0.55, {"title": "Senior Product Manager, Billing"})
+    assert delta == pytest.approx(0.2)
+    assert "product manager" in reason
+
+def test_seniority_scorer_group_pm_vs_senior_user():
+    scorer = SeniorityScorer({"years_experience": 5, "level_weight": 0.16})
+    score, delta, reason = scorer.adjust(
+        0.58, {"title": "Group Product Manager, Monetization"},
+    )
+    assert delta == pytest.approx(-0.48)
+    assert "3 band" in reason
+
+
+def test_experience_filter_drops_group_pm_for_five_years():
+    from core.preferences import ExperienceFilter
+    filt = ExperienceFilter({"years_experience": 5, "trapdoor_enabled": True})
+    keep, reason = filt.evaluate({"title": "Group Product Manager, Growth"})
+    assert keep is False
+    assert "director" in reason or "10" in reason
 
 
 # ─────────────────────────────────────────────────────────────────

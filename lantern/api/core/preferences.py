@@ -623,25 +623,64 @@ def _normalise_level(value: str) -> str:
     return _LEVEL_ALIASES.get(v, "")
 
 
-def _infer_job_level(payload: dict) -> str:
-    """Mirror of dimensions._infer_job_seniority but returns '' (not None)
-    so downstream code can treat it like a string."""
-    tagged = _normalise_level(payload.get("seniority") or "")
-    if tagged:
-        return tagged
-    title = (payload.get("title") or "").lower()
-    # Same ordered tokens dimensions.py uses, inlined here to avoid a
-    # circular import (dimensions imports from preferences in tests).
+def _infer_user_level(prefs: dict) -> str:
+    """Best guess at the user's seniority band for scoring.
+
+    Uses explicit ``current_level`` when set; otherwise infers from
+    ``years_experience`` against ``_SENIORITY_YEARS_FLOOR``.
+    """
+    explicit = _normalise_level(prefs.get("current_level") or "")
+    if explicit:
+        return explicit
+    try:
+        years = int(prefs.get("years_experience") or 0)
+    except (TypeError, ValueError):
+        years = 0
+    if years <= 0:
+        return ""
+    for band, _rank in sorted(_LEVEL_ORDER.items(), key=lambda kv: kv[1], reverse=True):
+        floor = _SENIORITY_YEARS_FLOOR.get(band, 0)
+        if years >= floor:
+            return band
+    return "junior"
+
+
+def _infer_job_level_from_title(title: str) -> str:
+    """Seniority band inferred from title tokens only."""
+    t = (title or "").lower()
+    if not t:
+        return ""
     for tok, label in [
-        ("staff", "staff"), ("principal", "staff"),
+        ("group product manager", "director"),
+        ("group pm", "director"),
+        ("group product", "director"),
+        ("staff ", "staff"), ("staff,", "staff"), (", staff", "staff"),
+        ("principal", "staff"),
         ("director of", "director"), (" director", "director"),
         ("head of", "director"), ("vp ", "vp"), ("vp,", "vp"),
         ("senior ", "senior"), ("lead ", "senior"), ("sr. ", "senior"), ("sr ", "senior"),
         ("junior", "junior"), ("associate", "junior"), ("graduate", "junior"),
     ]:
-        if tok in title:
+        if tok in t:
             return label
     return ""
+
+
+def _infer_job_level(payload: dict) -> str:
+    """Mirror of dimensions._infer_job_seniority but returns '' (not None)
+    so downstream code can treat it like a string."""
+    from_title = _infer_job_level_from_title(payload.get("title") or "")
+    tagged = _normalise_level(payload.get("seniority") or "")
+    if not from_title:
+        return tagged
+    if not tagged:
+        return from_title
+    # Parsed seniority fields are often wrong ("Staff PM" tagged senior).
+    # When title and tag disagree, take the higher band so over-leveled
+    # listings still pick up seniority penalties.
+    title_rank = _LEVEL_ORDER.get(from_title, 0)
+    tag_rank = _LEVEL_ORDER.get(tagged, 0)
+    return from_title if title_rank >= tag_rank else tagged
 
 
 def _extract_required_years(payload: dict) -> Optional[int]:
@@ -737,6 +776,13 @@ class ExperienceFilter:
             self.max_years_gap = 8
         self.trapdoor = bool(prefs.get("trapdoor_enabled", True))
 
+    def _effective_user_level(self) -> str:
+        """Explicit current_level, else infer from years_experience."""
+        return self.level or _infer_user_level({
+            "years_experience": self.years,
+            "current_level": "",
+        })
+
     @property
     def active(self) -> bool:
         # If the user hasn't told us anything, don't filter. Years==0 and
@@ -748,6 +794,7 @@ class ExperienceFilter:
         if not self.active:
             return True, ""
 
+        user_level = self._effective_user_level()
         job_level = _infer_job_level(payload)
         required_years = _extract_required_years(payload)
 
@@ -757,12 +804,15 @@ class ExperienceFilter:
             return False, f"role is {job_level}; requires ~{_TRAPDOOR_YEARS}+ years (you have {self.years})"
 
         # 2. Seniority band gap (either direction).
-        if self.level and job_level:
-            u = _LEVEL_ORDER.get(self.level)
+        if user_level and job_level:
+            u = _LEVEL_ORDER.get(user_level)
             j = _LEVEL_ORDER.get(job_level)
             if u and j and abs(j - u) >= self.max_level_gap:
                 direction = "above" if j > u else "below"
-                return False, f"role seniority ({job_level}) is {abs(j - u)} bands {direction} yours ({self.level})"
+                return False, (
+                    f"role seniority ({job_level}) is {abs(j - u)} bands "
+                    f"{direction} yours ({user_level})"
+                )
 
         # 3. Explicit years requirement from the JD.
         if required_years is not None and required_years - self.years >= self.max_years_gap:
@@ -816,6 +866,49 @@ class ExperienceScorer:
         delta = -(steps * self.weight)
         return _clamp(base_score + delta), delta, (
             f"role wants {required_years}+ years, you have {self.years} (gap {gap})"
+        )
+
+
+class SeniorityScorer:
+    """Soft weight for title seniority vs the user's band.
+
+    Embedding similarity treats "Staff Product Manager" like "Product
+    Manager" — the title keyword boost (+title_weight) makes over-leveled
+    roles score even higher. This scorer pulls them back down when the
+    inferred job band sits above the user's.
+
+    Penalty = (job_rank - user_rank) * level_weight when job is above user.
+    Default level_weight 0.16 → one band (e.g. staff vs senior) costs ~16
+    raw points on the match score.
+    """
+
+    def __init__(self, prefs: dict):
+        self.user_level = _infer_user_level(prefs)
+        try:
+            self.weight = float(prefs.get("level_weight", 0.16) or 0)
+        except (TypeError, ValueError):
+            self.weight = 0.16
+
+    @property
+    def active(self) -> bool:
+        return bool(self.user_level) and self.weight > 0
+
+    def adjust(self, base_score: float, payload: dict) -> tuple[float, float, str]:
+        if not self.active:
+            return base_score, 0.0, ""
+        job_level = _infer_job_level(payload)
+        if not job_level:
+            return base_score, 0.0, ""
+        user_rank = _LEVEL_ORDER.get(self.user_level)
+        job_rank = _LEVEL_ORDER.get(job_level)
+        if user_rank is None or job_rank is None:
+            return base_score, 0.0, ""
+        gap = job_rank - user_rank
+        if gap <= 0:
+            return base_score, 0.0, ""
+        delta = -(gap * self.weight)
+        return _clamp(base_score + delta), delta, (
+            f"title seniority ({job_level}) is {gap} band(s) above yours ({self.user_level})"
         )
 
 
@@ -897,18 +990,22 @@ class TitleScorer:
             self.penalty = float(prefs.get("title_penalty", 0.60) or 0)
         except (TypeError, ValueError):
             self.penalty = 0.60
+        self.user_level = _infer_user_level(prefs)
 
     @property
     def active(self) -> bool:
-        return (self.weight > 0 and bool(self.keywords)) or (
-            self.penalty > 0 and bool(self.blocked_keywords)
+        return (
+            (self.weight > 0 and bool(self.keywords))
+            or (self.penalty > 0 and bool(self.blocked_keywords))
         )
 
     def adjust(self, base_score: float, payload: dict) -> tuple[float, float, str]:
-        if not self.active:
-            return base_score, 0.0, ""
         title = str(payload.get("title") or "").lower()
         if not title:
+            return base_score, 0.0, ""
+
+        if not ((self.weight > 0 and bool(self.keywords))
+                or (self.penalty > 0 and bool(self.blocked_keywords))):
             return base_score, 0.0, ""
         # Blocked-keyword titles take a hard penalty and short-circuit —
         # a wrong-discipline role never earns the positive boost, no
@@ -923,14 +1020,30 @@ class TitleScorer:
         # Positive boost: a flat full-weight bump for any whole-word
         # role-keyword hit. Whole-word (not substring) so "product"
         # doesn't fire on "counterproductive", "pm" on "completed", etc.
-        for kw in self.keywords:
-            pattern = r"(?<![a-z])" + re.escape(kw) + r"(?![a-z])"
-            if re.search(pattern, title):
-                delta = self.weight
-                return _clamp(base_score + delta), delta, (
-                    f"title contains '{kw}' (+{delta:.3f})"
-                )
+        # Skip the boost when the title band is above the user's — a
+        # "Staff Product Manager" hit on "product manager" must not get
+        # +title_weight on top of an already-inflated embedding score.
+        if self._keyword_boost_allowed(payload):
+            for kw in self.keywords:
+                pattern = r"(?<![a-z])" + re.escape(kw) + r"(?![a-z])"
+                if re.search(pattern, title):
+                    delta = self.weight
+                    return _clamp(base_score + delta), delta, (
+                        f"title contains '{kw}' (+{delta:.3f})"
+                    )
         return base_score, 0.0, ""
+
+    def _keyword_boost_allowed(self, payload: dict) -> bool:
+        if not self.user_level:
+            return True
+        job_level = _infer_job_level(payload)
+        if not job_level:
+            return True
+        user_rank = _LEVEL_ORDER.get(self.user_level)
+        job_rank = _LEVEL_ORDER.get(job_level)
+        if user_rank is None or job_rank is None:
+            return True
+        return job_rank <= user_rank
 
 
 class SalaryScorer:
@@ -1062,6 +1175,9 @@ def describe(prefs: dict) -> str:
         parts.append("experience[" + ", ".join(bits) + "]")
     if exp_s.active:
         parts.append(f"years_weight={exp_s.weight:.2f}")
+    sen = SeniorityScorer(prefs)
+    if sen.active:
+        parts.append(f"level={sen.user_level}, level_weight={sen.weight:.2f}")
     if sal.active:
         parts.append(f"salary[floor=${sal.floor:,.0f}, weight={sal.weight:.2f}]")
     return ", ".join(parts) or "none"

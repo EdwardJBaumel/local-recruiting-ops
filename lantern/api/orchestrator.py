@@ -840,6 +840,27 @@ class Orchestrator:
 
         scored_packets = scored_pass_1 + scored_pass_2
 
+        # Cross-encoder rerank: refine top-N after both passes. Registry
+        # rows were written incrementally with bi-encoder scores; upsert
+        # again so the UI reflects reranked ordering.
+        if scored_packets:
+            try:
+                reranked = self.match.rerank_results(scored_packets)
+                if _reg is not None:
+                    changed = [
+                        r for r in reranked
+                        if (r.payload or {}).get("_rerank_applied")
+                    ]
+                    if changed:
+                        _reg.upsert_matches(changed, cycle, profile_version=_profile_version)
+                        logger.info(
+                            "Registry updated after cross-encoder rerank (%d rows)",
+                            len(changed),
+                        )
+                scored_packets = reranked
+            except Exception as e:
+                logger.warning("Cross-encoder rerank failed (keeping embed scores): %s", e)
+
         # =====================================================================
         # Stats roll-up + persistence (was inline-per-stage before)
         # =====================================================================

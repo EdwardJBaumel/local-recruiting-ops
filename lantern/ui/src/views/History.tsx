@@ -1,45 +1,72 @@
+import { useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCycleHistory, type CycleHistoryEntry } from "@/hooks/useCycleHistory";
+import { useLogs } from "@/hooks/useLogs";
 import { useStatus } from "@/hooks/useStatus";
 
 export function History() {
   const history = useCycleHistory(500);
+  const logs = useLogs(400);
   const status = useStatus();
   const rows = history.data ?? [];
   const latest = rows[0];
-  const totalCycles = status.data?.cycles_recorded ?? rows.length;
-  const totals = summarise(rows);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logs.data?.lines.length) {
+      logEndRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [logs.data?.lines.length, logs.dataUpdatedAt]);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">History</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Long-run cycle timeline from <span className="font-mono">cycle_times.json</span>. Charts use this and market history,
-          not the raw match snapshot folders.
+          Cycle timeline from <span className="font-mono">cycle_times.json</span> and live pipeline log tail.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Metric label="Cycles stored" value={String(totalCycles)} />
-        <Metric label="Showing" value={String(rows.length)} hint="Newest first" />
-        <Metric label="Avg total" value={formatDuration(totals.avgSeconds)} hint="Shown cycles" />
-        <Metric label="Avg matches" value={totals.avgMatches != null ? totals.avgMatches.toFixed(1) : "—"} hint="Shown cycles" />
-      </div>
-
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Cycle Timeline</CardTitle>
+              <CardTitle className="text-base">Pipeline log</CardTitle>
               <CardDescription>
-                {latest ? `Latest: cycle #${latest.cycle} at ${formatTimestamp(latest.ts)}` : "No cycles recorded yet"}
+                {logs.data?.exists
+                  ? `Tail of ${logs.data.path}`
+                  : "Log file not found yet — run a cycle to create logs/lantern.log"}
               </CardDescription>
             </div>
             {status.data?.cycle_in_progress && (
               <Badge variant="secondary">{status.data.progress?.stage_label ?? "Running"}</Badge>
             )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {logs.isError ? (
+            <p className="text-sm text-destructive">{logs.error.message}</p>
+          ) : !logs.data?.exists ? (
+            <p className="text-sm text-muted-foreground">No log output yet.</p>
+          ) : (
+            <pre className="max-h-72 overflow-auto rounded-md border bg-secondary/30 p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
+              {(logs.data.lines ?? []).join("\n")}
+              <div ref={logEndRef} />
+            </pre>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Cycle timeline</CardTitle>
+              <CardDescription>
+                {latest ? `Latest: cycle #${latest.cycle} at ${formatTimestamp(latest.ts)}` : "No cycles recorded yet"}
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -85,27 +112,6 @@ export function History() {
       </Card>
     </div>
   );
-}
-
-function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
-        <div className="text-2xl font-semibold mt-1 font-mono tabular-nums">{value}</div>
-        {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
-      </CardContent>
-    </Card>
-  );
-}
-
-function summarise(rows: CycleHistoryEntry[]) {
-  const seconds = rows.map((r) => r.seconds).filter((n): n is number => typeof n === "number");
-  const matches = rows.map((r) => r.matches).filter((n): n is number => typeof n === "number");
-  return {
-    avgSeconds: seconds.length ? seconds.reduce((a, b) => a + b, 0) / seconds.length : null,
-    avgMatches: matches.length ? matches.reduce((a, b) => a + b, 0) / matches.length : null,
-  };
 }
 
 function fmt(n: number | undefined): string {
