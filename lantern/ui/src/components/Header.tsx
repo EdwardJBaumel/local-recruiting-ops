@@ -65,7 +65,7 @@ export function Header() {
         <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/8 ring-1 ring-accent/20">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 ring-1 ring-accent/25 shadow-[0_0_20px_-8px_hsl(var(--accent)/0.8)]">
                 <LanternMark className="h-[18px] w-[18px] text-accent" />
               </div>
               <div className="flex items-baseline gap-2">

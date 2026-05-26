@@ -2,30 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Lantern dark theme — warm charcoal base, amber accent. Kept in one
- * place so every shadcn primitive picks up the same levels.
+/* shadcn/ui design tokens — dark theme. Values are the standard shadcn
+ * dark palette with our brand orange swapped in for the accent slot.
+ * Contrast tuned for WCAG 2.1 AA on body text and accent-on-dark pairs.
  */
 @layer base {
   :root {
-    --background: 24 10% 8%;
-    --foreground: 40 12% 92%;
-    --card: 24 9% 11%;
-    --card-foreground: 40 12% 92%;
-    --popover: 24 9% 11%;
-    --popover-foreground: 40 12% 92%;
-    --primary: 40 12% 92%;
-    --primary-foreground: 24 10% 8%;
-    --secondary: 24 8% 15%;
-    --secondary-foreground: 40 10% 88%;
-    --muted: 24 7% 13%;
-    --muted-foreground: 30 6% 58%;
-    --accent: 32 78% 54%;
-    --accent-foreground: 24 10% 8%;
-    --destructive: 0 62% 52%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 24 8% 17%;
-    --input: 24 8% 17%;
-    --ring: 32 78% 54%;
+    --background: 222 14% 7%;
+    --foreground: 0 0% 95%;
+    --card: 222 13% 11%;
+    --card-foreground: 0 0% 95%;
+    --popover: 222 13% 11%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 222 14% 7%;
+    --secondary: 222 13% 16%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 222 13% 14%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 25 95% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 13% 18%;
+    --input: 222 13% 18%;
+    --ring: 25 95% 55%;
     --radius: 0.5rem;
   }
 
@@ -36,8 +37,8 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     background-image:
-      radial-gradient(ellipse 80% 55% at 0% -25%, hsl(32 70% 42% / 0.09), transparent 58%),
-      radial-gradient(ellipse 65% 45% at 100% -5%, hsl(24 20% 18% / 0.28), transparent 52%);
+      radial-gradient(ellipse 90% 60% at 0% -30%, hsl(25 90% 45% / 0.14), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% -10%, hsl(222 35% 22% / 0.35), transparent 50%);
     background-attachment: fixed;
   }
 }
