@@ -4,7 +4,7 @@ All notable changes to Lantern are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0] — 2026-05-25
+## [1.1.0] — 2026-05-25
 
 ### Added
 
@@ -12,12 +12,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Last cycle** panel with plain labels (Fetched, Ghosts removed, Matched your profile, New listings, Top matches analysed)
 - **Lantern mark** in the header (replaces the floating middot)
 - Atmospheric background and card depth on the dashboard shell
+- **CHANGELOG.md** and GitHub release notes
 
 ### Changed
 
 - **README** and **SETUP.md** — launch-first flow, hardware-aware model picks (`qwen3:4b` / `8b` / `14b`)
 - Brief metric strip order: Registry → Match rate → Ghost rate → Cycles run → timing tiles
-- Removed recruiter pitch section from README (product docs only)
+- Removed recruiter pitch from README and trimmed GitHub Pages copy to product-only
 
 ### Fixed
 
@@ -29,12 +30,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Security
 
 - Removed `docs/resume-bullets.md` from the public repo and scrubbed it from git history
-- Gitignored local-only files: `docs/resume-bullets.md`, `docs/cursor-models.md`, `push-to-github.ps1`
+- Gitignored local-only files: `docs/resume-bullets.md`, `docs/cursor-models.md`, `push-to-github.ps1`, `archive/sentinel/config.json`
 - Runtime PII paths remain gitignored: `lantern/api/config.json`, `lantern/api/data/`, logs
 
 ---
 
-## [0.1.0] — 2026-05-25
+## [1.0.0] — 2026-05-25
 
 Initial public release on GitHub.
 
