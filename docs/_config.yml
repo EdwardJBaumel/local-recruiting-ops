@@ -2,3 +2,5 @@ title: Lantern
 description: Local-first job intelligence
 theme: jekyll-theme-minimal
 markdown: GFM
+url: "https://edwardjbaumel.github.io"
+baseurl: "/lantern"
