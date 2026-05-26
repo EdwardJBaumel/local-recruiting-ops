@@ -4,6 +4,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStatus } from "@/hooks/useStatus";
 import { useRunPipeline } from "@/hooks/useRunPipeline";
 import { AlertTriangle, Loader2, Play } from "lucide-react";
+import { LanternMark } from "@/components/LanternMark";
 
 /**
  * App header — brand, live cycle status, Run Pipeline button, AND the
@@ -16,10 +17,8 @@ import { AlertTriangle, Loader2, Play } from "lucide-react";
  * `<Tabs>` Radix root that wraps Header + main, so this list shares
  * the same context as the TabsContent panels in App.tsx.
  *
- * Why no logo mark: the orange-square "L" looked tacked-on. The
- * wordmark plus the tagline carries the brand cleanly on its own; if
- * we ever ship a real symbol we can drop it in here without having to
- * design around an existing placeholder.
+ * Brand mark: small lantern icon in an accent-tinted chip — ties the
+ * wordmark to the orange palette without the old floating middot.
  */
 export function Header() {
   const status = useStatus();
@@ -44,7 +43,7 @@ export function Header() {
   const backendDown = !!status.error && !status.data;
 
   return (
-    <header className="border-b bg-background sticky top-0 z-50">
+    <header className="border-b border-border/80 bg-background/85 backdrop-blur-md sticky top-0 z-50">
       {/* Backend-down banner. Sits above row 1 because it's a process-
           level problem ("Python server isn't running"), not a per-row
           one — banner-style placement signals "this is the thing
@@ -65,16 +64,16 @@ export function Header() {
         {/* Row 1 — brand + live status + Run Pipeline. */}
         <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
-            {/* Wordmark only. The accent dot before "Lantern" is a
-                subtle visual hook that ties to the accent colour
-                without going full logo-ish. */}
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">
-                <span className="text-accent">·</span> Lantern
-              </h1>
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                local-first job intelligence
-              </span>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 ring-1 ring-accent/25 shadow-[0_0_20px_-8px_hsl(var(--accent)/0.8)]">
+                <LanternMark className="h-[18px] w-[18px] text-accent" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <h1 className="text-lg font-semibold tracking-tight">Lantern</h1>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  local-first job intelligence
+                </span>
+              </div>
             </div>
 
             {/* Live cycle status. Hidden when nothing's happening so

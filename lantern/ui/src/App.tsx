@@ -23,7 +23,7 @@ export default function App() {
   const setTab = useUIStore((s) => s.setCurrentTab);
 
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="min-h-screen bg-background flex flex-col">
+    <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="lantern-page">
       <Header />
       <main className="container py-6 flex-1">
         <TabsContent value="brief" className="mt-0">

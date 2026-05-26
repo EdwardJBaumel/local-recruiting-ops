@@ -44,8 +44,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image:
+      radial-gradient(ellipse 90% 60% at 0% -30%, hsl(25 90% 45% / 0.14), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% -10%, hsl(222 35% 22% / 0.35), transparent 50%);
+    background-attachment: fixed;
   }
 }
 
@@ -55,6 +59,10 @@
  * 16px which Tailwind's preflight resets to 0). We restore enough
  * spacing to make the JD readable, plus bullet list rendering. */
 @layer components {
+  .lantern-page {
+    @apply min-h-screen flex flex-col;
+  }
+
   .prose-jd p {
     @apply mb-3;
   }
