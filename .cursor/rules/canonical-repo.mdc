@@ -5,14 +5,14 @@ alwaysApply: true
 
 # Canonical repo (mandatory)
 
-**Only workspace:** `C:\Users\zonka\dev\projects\lantern`
+**Only workspace:** `C:\Users\zonka\dev\projects\local-recruiting-ops`
 
 Before editing Python or UI code, confirm all of:
 
-1. Workspace root contains `.git` and `lantern/api/server.py`
+1. Workspace root contains `.git` and `lro/api/server.py`
 2. Path is **not** `C:\Users\zonka\AI_recruiter` (stale partial copy — no backend, no git)
 3. Machine layout: read `C:\Users\zonka\dev\AGENTS.md` first if paths are unclear
 
-If the workspace is wrong, **stop** and tell the user to use **File → Open Folder →** `dev\projects\lantern`. Do not patch files under `AI_recruiter`.
+If the workspace is wrong, **stop** and tell the user to use **File → Open Folder →** `dev\projects\local-recruiting-ops`. Do not patch files under `AI_recruiter`.
 
 Run `.\scripts\verify-canonical-repo.ps1` from repo root when unsure.

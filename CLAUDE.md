@@ -1,14 +1,14 @@
-# LANTERN — Claude Code briefing
+# LRO — Claude Code briefing
 
 Local-first job-intelligence system. Python backend on port 8099, Vite + React + TypeScript frontend on port 3000 in dev. Zero API costs — everything runs on the user's machine via Ollama and sentence-transformers.
 
 ## Paths
 
-- Backend: `lantern/api/` (Python, API on :8099)
-- Frontend: `lantern/ui/` (Vite + React + TS, dev :3000)
-- Launchers: `start.ps1` / `start.sh`, `Start LANTERN.cmd`
+- Backend: `lro/api/` (Python, API on :8099)
+- Frontend: `lro/ui/` (Vite + React + TS, dev :3000)
+- Launchers: `start.ps1` / `start.sh`, `Start Local Recruiting Ops.cmd`
 - Frozen v1 reference: `archive/sentinel/` and `archive/sentinel-ui/` (do not extend)
-- Data: `lantern/api/data/` — match registry, decisions, resume, market intel (gitignored)
+- Data: `lro/api/data/` — match registry, decisions, resume, market intel (gitignored)
 
 ## User preferences
 
@@ -34,11 +34,11 @@ e. No auto-apply, no cloud version, no TOS-violating scrapers.
 
 ## Key files
 
-- `lantern/api/orchestrator.py` — pipeline driver
-- `lantern/api/agents/match.py` — embedding + scoring + calibration
-- `lantern/api/agents/ingest.py` — ATS fetchers, dead-slug tracking
-- `lantern/api/server.py` — HTTP API
-- `lantern/ui/src/views/` — Brief, Matches, Settings tabs
+- `lro/api/orchestrator.py` — pipeline driver
+- `lro/api/agents/match.py` — embedding + scoring + calibration
+- `lro/api/agents/ingest.py` — ATS fetchers, dead-slug tracking
+- `lro/api/server.py` — HTTP API
+- `lro/ui/src/views/` — Brief, Matches, Settings tabs
 
 ## Cloud agents
 

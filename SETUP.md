@@ -1,4 +1,4 @@
-# Lantern — Setup
+# Local Recruiting Ops — Setup
 
 A complete walk-through from a clean machine to a running first cycle.
 
@@ -25,34 +25,38 @@ If something goes wrong, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 ## 2. Clone
 
 ```bash
-git clone https://github.com/edwardjbaumel/lantern.git
-cd lantern
+git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
+cd lro
 ```
 
-**Check:** `ls` shows `lantern/`, `archive/`, `start.ps1`, `start.sh`, `README.md`.
+**Check:** `ls` shows `lro/`, `archive/`, `start.ps1`, `start.sh`, `README.md`.
 
 ---
 
-## 3. Pull at least one Ollama model
+## 3. Ollama models
 
-The launcher starts Ollama automatically but will not download models for you.
+Local Recruiting Ops needs **`qwen3:8b`** for parse and fit-gap analyse (defaults in `config.example.json`). Optional **`qwen3:14b`** for digest and cover letter if you use those features.
 
-**Minimum (one model, ~5 GB):**
+**Windows / macOS / Linux launchers** check `http://127.0.0.1:11434/api/tags` on startup and run `ollama pull qwen3:8b` if that tag is missing (~5 GB, one-time). Set `LRO_SKIP_MODEL_PULL=1` to skip.
 
-```bash
-ollama pull qwen3:8b
-```
-
-**Recommended (~14 GB total):**
+You can still pull manually before first launch:
 
 ```bash
 ollama pull qwen3:8b
-ollama pull qwen3:14b
+ollama pull qwen3:14b   # optional
 ```
 
-`qwen3:8b` handles parse. `qwen3:14b` handles analyse, digest and cover letter. You can change per-task model assignments after launch from **Settings → Models**.
+**Check:** `ollama list` shows `qwen3:8b`. That command and the launcher both talk to the **running** Ollama server — not a random folder on disk.
 
-**Check:** `ollama list` shows the models you pulled.
+### Custom model directory (`OLLAMA_MODELS`)
+
+If you store models outside the default location (e.g. a portable Ollama install), set **`OLLAMA_MODELS`** to the **`models`** subdirectory (the folder that contains `manifests/` and `blobs/`).
+
+**Windows:** set a **User** environment variable in System Settings (not only in a PowerShell profile). `Start Local Recruiting Ops.cmd` runs PowerShell with `-NoProfile`, so profile-only variables are invisible to the launcher. Restart Ollama after changing the path.
+
+**macOS / Linux:** `export OLLAMA_MODELS=...` in your shell profile, or pass it in the same terminal before `./start.sh`.
+
+If models exist on disk but Local Recruiting Ops still pulls or 404s, the running `ollama serve` process is almost certainly using a different directory — quit Ollama from the tray/menu bar and relaunch via `start.ps1` / `start.sh`.
 
 ---
 
@@ -66,7 +70,7 @@ The launcher creates the Python venv, installs dependencies, seeds `config.json`
 .\start.ps1
 ```
 
-If PowerShell execution policy blocks the script, double-click `Start LANTERN.cmd` instead. See [TROUBLESHOOTING → Windows execution policy](TROUBLESHOOTING.md#windows-execution-policy-blocks-startps1).
+If PowerShell execution policy blocks the script, double-click `Start Local Recruiting Ops.cmd` instead. See [TROUBLESHOOTING → Windows execution policy](TROUBLESHOOTING.md#windows-execution-policy-blocks-startps1).
 
 **macOS / Linux**
 
@@ -83,14 +87,14 @@ No config.json found — seeding from config.example.json (first-run setup)...
 Installing dashboard dependencies (one-time)...
 Building dashboard for single-port mode (:8099)...
 
-  Lantern launcher
+  Local Recruiting Ops launcher
   - Python : /path/to/venv/bin/python
-  - API dir: /path/to/lantern/api
-  - UI dir : /path/to/lantern/ui
+  - API dir: /path/to/lro/api
+  - UI dir : /path/to/lro/ui
   - App    : http://127.0.0.1:8099
 
 Ollama already running on :11434
-Lantern is ready.
+Local Recruiting Ops is ready.
   Dashboard:  http://127.0.0.1:8099/#launch=...
 ```
 
@@ -228,12 +232,12 @@ The launcher installs any new Python or npm dependencies on next start. `config.
 
 | What | Path |
 |---|---|
-| Live config | `lantern/api/config.json` (gitignored) |
-| Matches, decisions, resume | `lantern/api/data/` (gitignored) |
-| Backend logs | `lantern/api/logs/lantern.log` (gitignored) |
-| Config template | `lantern/api/config.example.json` (tracked) |
+| Live config | `lro/api/config.json` (gitignored) |
+| Matches, decisions, resume | `lro/api/data/` (gitignored) |
+| Backend logs | `lro/api/logs/lro.log` (gitignored) |
+| Config template | `lro/api/config.example.json` (tracked) |
 
-For a clean slate, delete `lantern/api/data/` and `lantern/api/config.json` and relaunch.
+For a clean slate, delete `lro/api/data/` and `lro/api/config.json` and relaunch.
 
 ---
 

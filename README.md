@@ -1,10 +1,10 @@
-# Lantern
+# Local Recruiting Ops
 
 Scrapes public job feeds, scores roles against your resume, flags ghost jobs — all on your machine, no API costs.
 
-![Lantern dashboard demo](docs/assets/lantern-demo.gif)
+![Local Recruiting Ops dashboard demo](docs/assets/lro-demo.gif)
 
-**[Live site](https://edwardjbaumel.github.io/lantern/)** · [Setup](SETUP.md) · [Changelog](CHANGELOG.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
+**[Live site](https://edwardjbaumel.github.io/local-recruiting-ops/)** · [Setup](SETUP.md) · [Changelog](CHANGELOG.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
 
 ---
 
@@ -19,7 +19,7 @@ Each cycle ingests public ATS feeds, scores survivors against your resume and ca
 
 Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (scored list), **History** (cycle timeline), **Settings**.
 
-*Replace `docs/assets/lantern-demo.gif` with a real screen recording when you have one.*
+*Replace `docs/assets/lro-demo.gif` with a real screen recording when you have one.*
 
 ---
 
@@ -35,8 +35,8 @@ Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (
 **1. Clone**
 
 ```bash
-git clone https://github.com/edwardjbaumel/lantern.git
-cd lantern
+git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
+cd local-recruiting-ops
 ```
 
 **2. Pull a model**
@@ -84,11 +84,11 @@ Full walkthrough: [SETUP.md](SETUP.md)
 ## Develop and test
 
 ```bash
-cd lantern/api && pip install -r requirements.txt -r requirements-dev.txt && pytest
+cd lro/api && pip install -r requirements.txt -r requirements-dev.txt && pytest
 cd ../ui && npm ci && npm test
 ```
 
-Hot-reload UI: `$env:LANTERN_DEV_UI = "1"; .\start.ps1`
+Hot-reload UI: `$env:LRO_DEV_UI = "1"; .\start.ps1`
 
 ---
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Lantern are documented here.
+All notable changes to Local Recruiting Ops are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -12,7 +12,7 @@ Lean match path and faster cycles: skip dead LLM work when Ollama models are mis
 
 - **Match list cap** — after scoring, only the top **80** jobs stay in match tier (`match.match_list_cap` in `config.example.json`)
 - **`llm.task_llm_ready()`** — parse, archetype and fit-gap stages skip cleanly when no model is pulled (one log line, no per-row 404 spam)
-- **Auto-pull `qwen3:8b`** on launch when Ollama is up and the model is missing (`start.ps1`; set `LANTERN_SKIP_MODEL_PULL=1` to skip)
+- **Auto-pull `qwen3:8b`** on launch when Ollama is up and the model is missing (`start.ps1`; set `LRO_SKIP_MODEL_PULL=1` to skip)
 - **`scripts/verify-canonical-repo.ps1`** — launcher fails fast if you are not in the git repo (guards against editing the stale `AI_recruiter` copy)
 - **Match filter module** — `matchFilters.ts`, `useFilteredMatches.ts` and vitest coverage
 - **pytest** — `test_llm_ready.py`, `test_match_list_cap.py` (223 tests total)
@@ -30,7 +30,7 @@ Lean match path and faster cycles: skip dead LLM work when Ollama models are mis
 ### Fixed
 
 - **Brief match rate** — early-exit cycles (all URLs already seen) now record funnel stats; ingested count uses fetched total not post-dedupe zero
-- **Start LANTERN.cmd** — pauses on failure so the window stays open when launch errors
+- **Start Local Recruiting Ops.cmd** — pauses on failure so the window stays open when launch errors
 - **History.tsx** — removed unused import (TS6133)
 
 ### Upgrade notes (1.1.x → 1.2.0)
@@ -53,7 +53,7 @@ Then run **Reset data** once if the Matches tab still shows hundreds of stale ro
 
 - **Brief → Match rate** tile (`matches ÷ ingested` on the last cycle)
 - **Last cycle** panel with plain labels (Fetched, Ghosts removed, Matched your profile, New listings, Top matches analysed)
-- **Lantern mark** in the header (replaces the floating middot)
+- **Local Recruiting Ops mark** in the header (replaces the floating middot)
 - Atmospheric background and card depth on the dashboard shell
 - **CHANGELOG.md** and GitHub release notes
 
@@ -74,7 +74,7 @@ Then run **Reset data** once if the Matches tab still shows hundreds of stale ro
 
 - Removed `docs/resume-bullets.md` from the public repo and scrubbed it from git history
 - Gitignored local-only files: `docs/resume-bullets.md`, `docs/cursor-models.md`, `push-to-github.ps1`, `archive/sentinel/config.json`
-- Runtime PII paths remain gitignored: `lantern/api/config.json`, `lantern/api/data/`, logs
+- Runtime PII paths remain gitignored: `lro/api/config.json`, `lro/api/data/`, logs
 
 ---
 

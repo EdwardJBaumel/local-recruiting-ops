@@ -1,6 +1,6 @@
-# Lantern dev launcher (Windows / PowerShell)
-# Boots Lantern on one visible local URL by default: http://127.0.0.1:8099.
-# Set LANTERN_DEV_UI=1 to also run the Vite dashboard on :3000 for UI work.
+# Local Recruiting Ops dev launcher (Windows / PowerShell)
+# Boots Local Recruiting Ops on one visible local URL by default: http://127.0.0.1:8099.
+# Set LRO_DEV_UI=1 to also run the Vite dashboard on :3000 for UI work.
 # Press Ctrl+C in this window to stop both.
 #
 # Usage:
@@ -23,9 +23,9 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 & (Join-Path $root 'scripts\verify-canonical-repo.ps1')
 if (-not $?) { exit 1 }
 
-# --- Paths -- point everything at lantern/, NOT sentinel/ -------------
-$apiDir = Join-Path $root 'lantern\api'
-$uiDir  = Join-Path $root 'lantern\ui'
+# --- Paths -- point everything at lro/, NOT sentinel/ -------------
+$apiDir = Join-Path $root 'lro\api'
+$uiDir  = Join-Path $root 'lro\ui'
 if (-not (Test-Path $apiDir)) {
     Write-Host "ERROR: $apiDir not found. Did the rebuild finish?" -ForegroundColor Red
     exit 1
@@ -34,7 +34,7 @@ if (-not (Test-Path (Join-Path $uiDir 'package.json'))) {
     Write-Host "ERROR: $uiDir\package.json not found." -ForegroundColor Red
     exit 1
 }
-$devUi = (($env:LANTERN_DEV_UI -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))
+$devUi = (($env:LRO_DEV_UI -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))
 
 # --- Resolve Python (prefer the local venv, create one on first run) ---
 # venv lives at the repo root. First-run bootstrap: if no venv exists,
@@ -78,7 +78,7 @@ $exampleConfig = Join-Path $apiDir 'config.example.json'
 if ((-not (Test-Path $liveConfig)) -and (Test-Path $exampleConfig)) {
     Write-Host "No config.json found -- seeding from config.example.json (first-run setup)..." -ForegroundColor Cyan
     Copy-Item $exampleConfig $liveConfig
-    Write-Host "  -> Edit lantern\api\config.json to customise companies / models / preferences." -ForegroundColor DarkGray
+    Write-Host "  -> Edit lro\api\config.json to customise companies / models / preferences." -ForegroundColor DarkGray
     Write-Host "  -> Or use the dashboard's Settings tab once it is up." -ForegroundColor DarkGray
 }
 
@@ -102,7 +102,7 @@ if (-not $devUi) {
 }
 
 Write-Host ""
-Write-Host "  Lantern launcher" -ForegroundColor Cyan
+Write-Host "  Local Recruiting Ops launcher" -ForegroundColor Cyan
 Write-Host "  - Python : $python"
 Write-Host "  - API dir: $apiDir"
 Write-Host "  - UI dir : $uiDir"
@@ -123,7 +123,41 @@ function Test-Port11434 {
     } catch {}
     return $false
 }
+
+# Start Local Recruiting Ops.cmd uses powershell -NoProfile, so shell-only OLLAMA_MODELS
+# is lost. Pull models in one directory but serve from another -> /api/tags
+# says "missing" even though manifests exist on disk (e.g. dev\Tools\.ollama).
+function Sync-OllamaEnvFromRegistry {
+    if ($env:OLLAMA_MODELS) { return }
+    foreach ($scope in @('User', 'Machine')) {
+        $val = [Environment]::GetEnvironmentVariable('OLLAMA_MODELS', $scope)
+        if ($val) {
+            $env:OLLAMA_MODELS = $val
+            Write-Host "Using OLLAMA_MODELS from $scope scope: $val" -ForegroundColor DarkGray
+            return
+        }
+    }
+}
+
+function Get-OllamaTagNames {
+    param([int]$MaxWaitSec = 0)
+    $deadline = (Get-Date).AddSeconds($MaxWaitSec)
+    do {
+        try {
+            $resp = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5
+            $names = @($resp.models | ForEach-Object { $_.name })
+            if ($names.Count -gt 0 -or $MaxWaitSec -le 0) { return $names }
+        } catch {
+            if ($MaxWaitSec -le 0) { return @() }
+        }
+        if ((Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+    } while ((Get-Date) -lt $deadline)
+    return @()
+}
+
+Sync-OllamaEnvFromRegistry
 $ollama = $null
+$ollamaJustStarted = $false
 if (Test-Port11434) {
     Write-Host "Ollama already running on :11434" -ForegroundColor DarkGray
 } else {
@@ -134,33 +168,36 @@ if (Test-Port11434) {
             -ArgumentList 'serve' `
             -WindowStyle Hidden `
             -PassThru
+        $ollamaJustStarted = $true
     } else {
         Write-Host "Ollama not found on PATH. Install from https://ollama.com/download." -ForegroundColor Yellow
     }
 }
 
 # --- Pull core LLM if missing (parse + analyze + archetype fallback) ---
-# Set LANTERN_SKIP_MODEL_PULL=1 to skip. Google HTML cards and fit-gap
+# Set LRO_SKIP_MODEL_PULL=1 to skip. Google HTML cards and fit-gap
 # both need qwen3:8b; without it those stages no-op instead of 404-spam.
-if ((Test-Port11434) -and -not (($env:LANTERN_SKIP_MODEL_PULL -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))) {
+if ((Test-Port11434) -and -not (($env:LRO_SKIP_MODEL_PULL -as [string]).Trim().ToLower() -in @('1', 'true', 'yes', 'on'))) {
+    $waitSec = if ($ollamaJustStarted) { 30 } else { 0 }
+    $tagNames = Get-OllamaTagNames -MaxWaitSec $waitSec
     $needPull = @()
-    try {
-        $tagsJson = (Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5).models
-        $tagNames = @($tagsJson | ForEach-Object { $_.name })
-    } catch {
-        $tagNames = @()
-    }
     foreach ($required in @('qwen3:8b')) {
         $found = $false
         foreach ($t in $tagNames) {
-            if ($t -like "*$required*") { $found = $true; break }
+            if ($t -eq $required -or $t -like "$required") { $found = $true; break }
         }
         if (-not $found) { $needPull += $required }
     }
     if ($needPull.Count -gt 0) {
+        if ($tagNames.Count -gt 0) {
+            Write-Host "Ollama tags visible: $($tagNames -join ', ')" -ForegroundColor DarkGray
+        } elseif ($env:OLLAMA_MODELS) {
+            Write-Host "Ollama models dir: $env:OLLAMA_MODELS" -ForegroundColor DarkGray
+        }
         Write-Host ""
         Write-Host "Ollama is up but missing: $($needPull -join ', ')" -ForegroundColor Yellow
-        Write-Host "Pulling qwen3:8b (~5 GB, one-time). Set LANTERN_SKIP_MODEL_PULL=1 to skip." -ForegroundColor Cyan
+        Write-Host "Pulling qwen3:8b (~5 GB, one-time). Set LRO_SKIP_MODEL_PULL=1 to skip." -ForegroundColor Cyan
+        Write-Host "If you already pulled elsewhere, set User env OLLAMA_MODELS to that folder." -ForegroundColor DarkGray
         foreach ($m in $needPull) {
             & ollama pull $m
             if (-not $?) {
@@ -185,7 +222,7 @@ if ((Test-Port11434) -and -not (($env:LANTERN_SKIP_MODEL_PULL -as [string]).Trim
 # "Missing closing '}'" errors that crashed the launcher before any
 # output. Writing the snippet to a temp .py and running it sidesteps
 # the entire here-string question.
-$gpuProbeScript = Join-Path ([System.IO.Path]::GetTempPath()) ("lantern-gpu-probe-" + [Guid]::NewGuid().ToString('N') + ".py")
+$gpuProbeScript = Join-Path ([System.IO.Path]::GetTempPath()) ("lro-gpu-probe-" + [Guid]::NewGuid().ToString('N') + ".py")
 @'
 import json, shutil
 out = {"has_nvidia_smi": False, "cuda_available": False, "gpu": None, "torch_ver": None, "torch_cuda": None}
@@ -234,13 +271,13 @@ try {
 }
 
 # --- Spawn backend (+ optional frontend dev server) --------------------
-# LANTERN_NO_BROWSER=1 stops the backend from opening its own tab. The
+# LRO_NO_BROWSER=1 stops the backend from opening its own tab. The
 # launcher opens the one canonical dashboard URL once the process is ready.
-$env:LANTERN_NO_BROWSER = '1'
+$env:LRO_NO_BROWSER = '1'
 # Manual mode by default -- the orchestrator waits for /api/run-cycle
 # instead of auto-firing every interval. Matches the v1 fix that landed
 # in config.json: pipeline.auto_start=false.
-if (-not $env:LANTERN_MANUAL_MODE) { $env:LANTERN_MANUAL_MODE = '1' }
+if (-not $env:LRO_MANUAL_MODE) { $env:LRO_MANUAL_MODE = '1' }
 
 $backend = Start-Process -FilePath $python `
     -ArgumentList 'main.py' `
@@ -282,7 +319,7 @@ $waitMsgShown = $false
 # --- Ctrl+C cleanup ----------------------------------------------------
 $cleanup = {
     Write-Host ""
-    Write-Host "Stopping Lantern..." -ForegroundColor Yellow
+    Write-Host "Stopping Local Recruiting Ops..." -ForegroundColor Yellow
     foreach ($p in @($backend, $frontend, $ollama)) {
         if ($p -and -not $p.HasExited) {
             try { & taskkill /T /F /PID $p.Id 2>$null | Out-Null } catch {}
@@ -304,7 +341,7 @@ try {
                 Write-Host "Vite ready on :3000. Waiting for backend on :8099 (embedding model + Ollama prewarm)..." -ForegroundColor Cyan
                 $waitMsgShown = $true
             } elseif ((-not $devUi) -and -not $apiReady -and -not $waitMsgShown) {
-                Write-Host "Waiting for Lantern on :8099 (embedding model + Ollama prewarm)..." -ForegroundColor Cyan
+                Write-Host "Waiting for Local Recruiting Ops on :8099 (embedding model + Ollama prewarm)..." -ForegroundColor Cyan
                 $waitMsgShown = $true
             }
             if ($viteReady -and $apiReady) {
@@ -360,7 +397,7 @@ try {
                 }
 
                 Write-Host ""
-                Write-Host "Lantern is ready." -ForegroundColor Green
+                Write-Host "Local Recruiting Ops is ready." -ForegroundColor Green
                 Write-Host "  Dashboard:  $dashUrl" -ForegroundColor Green
                 if ($devUi) {
                     Write-Host "  Backend:    http://127.0.0.1:8099" -ForegroundColor DarkGray

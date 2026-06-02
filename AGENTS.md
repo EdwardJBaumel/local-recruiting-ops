@@ -1,4 +1,4 @@
-# Agent guide — Lantern
+# Agent guide — Local Recruiting Ops
 
 > **Machine layout:** read `C:\Users\zonka\dev\AGENTS.md` first if you need paths outside this repo.
 
@@ -6,18 +6,18 @@ Instructions for Cursor Cloud Agents and other coding agents working on this rep
 
 ## What this project is
 
-**Lantern** is a local-first job-intelligence pipeline: scrape public ATS feeds → parse with a small local LLM → score against your resume with embeddings → flag ghost jobs → surface matches in a 3-tab dashboard. Built as a portfolio piece demonstrating multi-agent orchestration, local LLM economics and product judgment.
+**Local Recruiting Ops** is a local-first recruiting ops pipeline: scrape public ATS feeds → parse with a small local LLM → score against your resume with embeddings → flag ghost jobs → surface matches in a 3-tab dashboard. Built as a portfolio piece demonstrating multi-agent orchestration, local LLM economics and product judgment.
 
-v1 was called Sentinel (`archive/`). Lantern is the active codebase.
+v1 was called Sentinel (`archive/`). Local Recruiting Ops is the active codebase.
 
 ## What you can do in the cloud
 
 Safe without Ollama or a GPU:
 
 - README, SETUP, TROUBLESHOOTING, doc fixes
-- TypeScript UI changes (`lantern/ui/`)
-- Python unit tests (`cd lantern/api && pytest`)
-- Vitest (`cd lantern/ui && npm test`)
+- TypeScript UI changes (`lro/ui/`)
+- Python unit tests (`cd lro/api && pytest`)
+- Vitest (`cd lro/ui && npm test`)
 - Refactors, dead-code removal, lint fixes
 - `.github/workflows` CI that runs pytest + vitest only
 
@@ -33,8 +33,8 @@ Do not claim E2E pipeline success without runtime evidence on a machine with Oll
 ## Repo layout
 
 ```
-lantern/api/     Python backend (orchestrator, agents/, core/, server.py)
-lantern/ui/      React frontend
+lro/api/     Python backend (orchestrator, agents/, core/, server.py)
+lro/ui/      React frontend
 archive/         Frozen Sentinel v1 — reference only, do not port backward
 start.ps1        Windows dev launcher
 scripts/         verify-canonical-repo.ps1 — fail fast if wrong folder
@@ -42,7 +42,7 @@ scripts/         verify-canonical-repo.ps1 — fail fast if wrong folder
 
 ## Canonical workspace (avoid duplicate copies)
 
-**Open this repo in Cursor:** `C:\Users\zonka\dev\projects\lantern`
+**Open this repo in Cursor:** `C:\Users\zonka\dev\projects\local-recruiting-ops`
 
 Do **not** use `C:\Users\zonka\AI_recruiter` — it is a stale partial copy (no `.git`, no `server.py`). Agents editing there caused fixes to land in the wrong tree. Run `.\scripts\verify-canonical-repo.ps1` before `start.ps1` or when unsure.
 
@@ -50,7 +50,7 @@ Do **not** use `C:\Users\zonka\AI_recruiter` — it is a stale partial copy (no 
 
 - British English in user-facing copy
 - State files: always write via `core/io_safe.py`
-- Never commit `lantern/api/config.json` or `lantern/api/data/` (gitignored PII)
+- Never commit `lro/api/config.json` or `lro/api/data/` (gitignored PII)
 - `config.example.json` is the sanitised template
 - Do not use AskQuestion — proceed with reasonable assumptions
 - Minimal diffs; match existing style
@@ -58,7 +58,7 @@ Do **not** use `C:\Users\zonka\AI_recruiter` — it is a stale partial copy (no 
 ## Running tests (cloud-friendly)
 
 ```bash
-cd lantern/api
+cd lro/api
 pip install -r requirements.txt -r requirements-dev.txt
 pytest
 
@@ -82,21 +82,21 @@ For technical and PM hiring loops, **GitHub is the priority**:
 
 - Recruiters and hiring managers check GitHub for code quality and shipping evidence
 - A strong README (this repo has one) beats an empty profile
-- Optional: a one-page site (e.g. eddy.dev/lantern) that embeds a demo GIF and links to the repo — useful for PM roles where you need a product narrative in 30 seconds
+- Optional: a one-page site (e.g. eddy.dev/local-recruiting-ops) that embeds a demo GIF and links to the repo — useful for PM roles where you need a product narrative in 30 seconds
 
 Recommended: ship GitHub first, link it from resume and LinkedIn. Add a portfolio page only if you want a curated story beyond what README provides.
 
 ## First-time GitHub push
 
 ```powershell
-cd c:\Users\zonka\dev\projects\lantern
+cd c:\Users\zonka\dev\projects\local-recruiting-ops
 git init
 git add .
-git commit -m "Initial public release of Lantern"
-gh repo create lantern --public --source=. --push
+git commit -m "Initial public release of Local Recruiting Ops"
+gh repo create lro --public --source=. --push
 ```
 
-Replace `lantern` with your chosen repo name. Use a private repo if you prefer; Cloud Agents work with either.
+Replace `lro` with your chosen repo name. Use a private repo if you prefer; Cloud Agents work with either.
 
 ## Suggested cloud-agent task queue
 

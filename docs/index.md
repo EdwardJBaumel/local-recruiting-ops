@@ -1,21 +1,21 @@
 ---
-title: Lantern
-description: Local-first job intelligence — embeddings, ghost detection, zero API cost
+title: Local Recruiting Ops
+description: Local-first recruiting ops — embeddings, ghost detection, zero API cost
 ---
 
-# Lantern
+# Local Recruiting Ops
 
-Local-first job intelligence: scrape public ATS feeds, score roles against your resume with embeddings, flag ghost jobs — all on your machine via Ollama.
+Local-first recruiting ops: scrape public ATS feeds, score roles against your resume with embeddings, flag ghost jobs — all on your machine via Ollama.
 
-**[GitHub](https://github.com/EdwardJBaumel/lantern)** · **[Setup](https://github.com/EdwardJBaumel/lantern/blob/master/SETUP.md)** · **[Changelog](https://github.com/EdwardJBaumel/lantern/blob/master/CHANGELOG.md)** · **v1.2.0**
+**[GitHub](https://github.com/EdwardJBaumel/local-recruiting-ops)** · **[Setup](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/SETUP.md)** · **[Changelog](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/CHANGELOG.md)** · **v1.2.0**
 
 ---
 
 ## Demo
 
-![Lantern dashboard — placeholder until you drop in a real screen recording](assets/lantern-demo.gif)
+![Local Recruiting Ops dashboard — placeholder until you drop in a real screen recording](assets/lro-demo.gif)
 
-*Animated placeholder.* Record **Settings → Run Pipeline → Matches** locally, then replace [`docs/assets/lantern-demo.gif`](https://github.com/EdwardJBaumel/lantern/blob/master/docs/assets/lantern-demo.gif) (ScreenToGif, OBS or Win+G). Re-run `python scripts/generate-demo-placeholder.py` only if you need to reset the placeholder.
+*Animated placeholder.* Record **Settings → Run Pipeline → Matches** locally, then replace [`docs/assets/lro-demo.gif`](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/docs/assets/lro-demo.gif) (ScreenToGif, OBS or Win+G). Re-run `python scripts/generate-demo-placeholder.py` only if you need to reset the placeholder.
 
 ---
 
@@ -41,8 +41,8 @@ Dashboard tabs: **Brief** (market + funnel), **Matches** (scored list), **Histor
 Requires Python 3.11+, Node 18+, [Ollama](https://ollama.com/download) and a GPU for sensible cycle times.
 
 ```powershell
-git clone https://github.com/EdwardJBaumel/lantern.git
-cd lantern
+git clone https://github.com/EdwardJBaumel/local-recruiting-ops.git
+cd lro
 .\start.ps1
 ```
 
@@ -52,7 +52,7 @@ The launcher bootstraps venv, builds the UI, starts Ollama and pulls **`qwen3:8b
 2. **Run Pipeline** — first cycle may take several minutes while embeddings download  
 3. **Matches** — browse the cap-80 shortlist; open a row for fit/gap detail  
 
-Hardware-specific model picks and GPU setup: [SETUP.md](https://github.com/EdwardJBaumel/lantern/blob/master/SETUP.md).
+Hardware-specific model picks and GPU setup: [SETUP.md](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/SETUP.md).
 
 ---
 
@@ -63,7 +63,7 @@ Hardware-specific model picks and GPU setup: [SETUP.md](https://github.com/Edwar
 - **Google off by default** — ATS JSON sources need no parse step; enable Google only if you want those roles  
 - **Brief match rate fix** — early-exit cycles record funnel stats correctly  
 
-Full patch notes: [CHANGELOG.md](https://github.com/EdwardJBaumel/lantern/blob/master/CHANGELOG.md#120--2026-05-26).
+Full patch notes: [CHANGELOG.md](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/CHANGELOG.md#120--2026-05-26).
 
 ---
 

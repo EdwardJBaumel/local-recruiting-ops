@@ -1,6 +1,6 @@
-# Lantern — Troubleshooting
+# Local Recruiting Ops — Troubleshooting
 
-If you hit one of these and the fix isn't here, check `lantern/api/logs/sentinel.log` for the backend's view, the launcher window for the Python error, or your browser DevTools console for the frontend's view. Open an issue with all three and I'll add it.
+If you hit one of these and the fix isn't here, check `lro/api/logs/sentinel.log` for the backend's view, the launcher window for the Python error, or your browser DevTools console for the frontend's view. Open an issue with all three and I'll add it.
 
 ---
 
@@ -14,7 +14,7 @@ If you hit one of these and the fix isn't here, check `lantern/api/logs/sentinel
 .\start.ps1 cannot be loaded because running scripts is disabled on this system.
 ```
 
-**Fix (one-time):** double-click `Start LANTERN.cmd` instead — it sets the policy for that single invocation. Alternatively, allow scripts globally:
+**Fix (one-time):** double-click `Start Local Recruiting Ops.cmd` instead — it sets the policy for that single invocation. Alternatively, allow scripts globally:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -75,12 +75,12 @@ OSError: cannot load library 'libgobject-2.0-0'
 
 **Symptom:** the dashboard shows a destructive-coloured banner above the navbar:
 
-> ⚠ Backend not reachable on `localhost:8099`. Run `start.ps1` (or double-click `Start LANTERN.cmd`) to bring up the Python API.
+> ⚠ Backend not reachable on `localhost:8099`. Run `start.ps1` (or double-click `Start Local Recruiting Ops.cmd`) to bring up the Python API.
 
 **Fix:** check the launcher window — the Python process probably crashed or never started. Common causes:
 
-1. **Port 8099 already in use.** Another Lantern instance, or some other service. Kill it (Task Manager / `lsof -ti :8099 | xargs kill`) and re-run.
-2. **Bad `config.json`.** A half-saved Settings change can leave it as invalid JSON. The Python launcher should catch this and tell you, but if it doesn't, delete `lantern/api/config.json` and re-run — the launcher will reseed from `config.example.json`.
+1. **Port 8099 already in use.** Another Local Recruiting Ops instance, or some other service. Kill it (Task Manager / `lsof -ti :8099 | xargs kill`) and re-run.
+2. **Bad `config.json`.** A half-saved Settings change can leave it as invalid JSON. The Python launcher should catch this and tell you, but if it doesn't, delete `lro/api/config.json` and re-run — the launcher will reseed from `config.example.json`.
 3. **Missing core dep.** Run `venv\Scripts\python -c "import server"` and read the import error.
 
 ### Ollama not running
@@ -104,17 +104,40 @@ If `ollama` isn't installed at all, get it from https://ollama.com/download.
 
 ### Pipeline fails partway: "Model 'X' not found"
 
-**Symptom:** logs show `Pipeline will fall back to available models` or a stage errors with `model not found`.
+**Symptom:** logs show `Ollama 404 for model 'qwen3:8b'` or fit-gap / parse stages skip with "model not pulled".
 
-**Why:** your config picked a model you haven't pulled. Default config assumes `qwen3:14b`, `phi4-reasoning:14b`, `gemma3:12b`, `qwen3:8b`, `qwen3:30b-a3b`. If you only pulled some of those, the others will fail.
+**Why:** the running Ollama server does not have that tag installed. Local Recruiting Ops checks `/api/tags`, not files in a folder you browsed in Explorer.
 
-**Fix:** either pull the missing model:
+**Fix:** pull the missing model in the **same environment** the launcher uses:
 
 ```bash
-ollama pull <model-name>
+ollama pull qwen3:8b
 ```
 
-…or open **Settings → Models** and switch each unsatisfied task to a model you DID pull. The dropdowns only list installed models.
+…or open **Settings → Models** and point each task at a model `ollama list` already shows.
+
+Default config expects **`qwen3:8b`** (parse, analyse) and optionally **`qwen3:14b`** (digest, cover letter). See [SETUP → Ollama models](SETUP.md#3-ollama-models).
+
+### "Missing qwen3:8b" on launch but I already pulled it
+
+**Symptom:** `start.ps1` prints `Ollama is up but missing: qwen3:8b` and pulls again, even though you see a manifest under a custom `.ollama\models` path.
+
+**Why:** two common causes:
+
+1. **Different model directory** — you pulled into `OLLAMA_MODELS=A` but `ollama serve` (tray app or launcher) is serving from the default `%USERPROFILE%\.ollama\models`.
+2. **Windows `-NoProfile`** — `Start Local Recruiting Ops.cmd` does not load your PowerShell profile, so a profile-only `OLLAMA_MODELS` is ignored unless it is a **User** env var in System Settings.
+
+**Fix:**
+
+```powershell
+# What the running server sees:
+ollama list
+[Environment]::GetEnvironmentVariable('OLLAMA_MODELS','User')
+```
+
+Set **User** `OLLAMA_MODELS` to your `...\models` folder, quit Ollama completely, relaunch via `start.ps1`. After that, `ollama list` and the launcher should agree.
+
+The pull you see may be **verify-only** (same SHA256 digests, no re-download) if blobs were already present in the directory that server uses.
 
 ### Settings save shows "Saved" but values revert on reload
 
@@ -122,7 +145,7 @@ ollama pull <model-name>
 
 **Cause:** stale build of the frontend that doesn't include the nested-shape config save fix. Or browser-cached old bundle.
 
-**Fix:** in the dev server, hit Ctrl-F5 to hard-refresh and bust the cache. If that doesn't work, kill the launcher, run `npm run build` in `lantern/ui/`, and re-launch.
+**Fix:** in the dev server, hit Ctrl-F5 to hard-refresh and bust the cache. If that doesn't work, kill the launcher, run `npm run build` in `lro/ui/`, and re-launch.
 
 ### "Backend not reachable" loops endlessly with hundreds of console errors
 
@@ -149,7 +172,7 @@ This is also caught by the heartbeat banner now (top of the navbar) so you don't
 
 **Cause:** you're looking at a cached older market_intel entry, OR the backend's market_intel writer didn't record this cycle.
 
-**Fix:** click **Run Pipeline** once more. Market intel is written at the end of each cycle. If still empty after two cycles, check `lantern/api/data/market_intel.json` — if the file is there with cycle entries, the backend is writing but the UI isn't reading them; refresh the page (Ctrl-F5). If the file is empty / missing, check `lantern/api/logs/sentinel.log` for `MarketIntel` errors.
+**Fix:** click **Run Pipeline** once more. Market intel is written at the end of each cycle. If still empty after two cycles, check `lro/api/data/market_intel.json` — if the file is there with cycle entries, the backend is writing but the UI isn't reading them; refresh the page (Ctrl-F5). If the file is empty / missing, check `lro/api/logs/sentinel.log` for `MarketIntel` errors.
 
 ### Matches tab is empty after a successful cycle
 
@@ -161,7 +184,7 @@ This is also caught by the heartbeat banner now (top of the navbar) so you don't
 
 **Cause:** legacy data — older Google rows in your registry have `url=null` because the HTML cleaner stripped the `<a href>` before the LLM saw it. Multiple null-URL rows shared the same selection key.
 
-**Fix:** this is fixed in the current build (URL is extracted deterministically by the fetcher now). But existing rows from before the fix are stuck with null URLs. Delete `lantern/api/data/match_registry.json` and re-run the pipeline — the new entries will have URLs.
+**Fix:** this is fixed in the current build (URL is extracted deterministically by the fetcher now). But existing rows from before the fix are stuck with null URLs. Delete `lro/api/data/match_registry.json` and re-run the pipeline — the new entries will have URLs.
 
 ---
 
@@ -171,12 +194,12 @@ This is also caught by the heartbeat banner now (top of the navbar) so you don't
 
 The `.gitignore` excludes:
 
-- `lantern/api/data/` — your match registry, decisions, resume, parsed profile, cover letter drafts, user.json
-- `lantern/api/logs/` — your activity log
-- `lantern/api/config.json` — your live config (could contain a Discord webhook, your tuned thresholds, your home pins)
+- `lro/api/data/` — your match registry, decisions, resume, parsed profile, cover letter drafts, user.json
+- `lro/api/logs/` — your activity log
+- `lro/api/config.json` — your live config (could contain a Discord webhook, your tuned thresholds, your home pins)
 - `venv/`, `node_modules/` — machine-specific install state
 
-What IS committed: the sanitized `lantern/api/config.example.json` template, the source code, the README, the LICENSE.
+What IS committed: the sanitized `lro/api/config.example.json` template, the source code, the README, the LICENSE.
 
 **To audit what would actually be pushed:**
 
@@ -197,9 +220,9 @@ git diff --cached             # shows what's about to be committed (after `git a
 
 ```bash
 # From the repo root:
-rm -rf venv node_modules lantern/ui/node_modules
-rm -rf lantern/api/data lantern/api/logs
-rm lantern/api/config.json
+rm -rf venv node_modules lro/ui/node_modules
+rm -rf lro/api/data lro/api/logs
+rm lro/api/config.json
 ./start.ps1   # or ./start.sh
 ```
 
@@ -212,7 +235,7 @@ The launcher rebuilds everything from scratch.
 If none of the above helps, capture three things and open an issue:
 
 1. The launcher window output (full text from start to the failure).
-2. The contents of `lantern/api/logs/sentinel.log` (last ~200 lines).
+2. The contents of `lro/api/logs/sentinel.log` (last ~200 lines).
 3. The browser DevTools console (Network + Console tabs, screenshot or text).
 
-Lantern is a one-developer project and the surface is small enough that most issues either get caught by the bootstrap, the heartbeat banner, or the model picker's reachability check. Real bugs are rarer than configuration drift.
+Local Recruiting Ops is a one-developer project and the surface is small enough that most issues either get caught by the bootstrap, the heartbeat banner, or the model picker's reachability check. Real bugs are rarer than configuration drift.

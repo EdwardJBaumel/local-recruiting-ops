@@ -16,26 +16,26 @@ archive/sentinel/config.json
 #   - cover_letters/       : generated drafts that mention you by name
 #   - feedback_embeddings.json : derived from your starred/passed history
 # None of this should ever leave your machine.
-lantern/api/data/
+lro/api/data/
 archive/sentinel/data/
 archive/data/
 
 # Backend logs — contain timestamps + request paths from your local use
-lantern/api/logs/
+lro/api/logs/
 archive/sentinel/logs/
 archive/logs/
 *.log
 *.log.*
 *.err
 
-# Runtime config — start.ps1 / start.sh copy lantern/api/config.example.json
-# to lantern/api/config.json on first run. Edit config.json (not the example)
+# Runtime config — start.ps1 / start.sh copy lro/api/config.example.json
+# to lro/api/config.json on first run. Edit config.json (not the example)
 # for personal tuning so pulling repo updates won't overwrite your local
 # settings. Treat config.json as containing potential secrets (Discord
 # webhook, SMTP password) and never commit it.
-lantern/api/config.json
+lro/api/config.json
 archive/sentinel/config.json
-!lantern/api/config.example.json
+!lro/api/config.example.json
 
 # ─── Python ──────────────────────────────────────────────────────────
 venv/
@@ -66,7 +66,7 @@ node_modules/
 .npm/
 .pnp/
 .pnp.*
-lantern/ui/dist/
+lro/ui/dist/
 archive/sentinel-ui/dist/
 .vite/
 **/.vite/

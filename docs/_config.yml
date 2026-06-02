@@ -1,6 +1,6 @@
-title: Lantern
-description: Local-first job intelligence
+title: Local Recruiting Ops
+description: Local-first recruiting ops
 theme: jekyll-theme-minimal
 markdown: GFM
 url: "https://edwardjbaumel.github.io"
-baseurl: "/lantern"
+baseurl: "/local-recruiting-ops"

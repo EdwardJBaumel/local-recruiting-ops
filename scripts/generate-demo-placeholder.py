@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build docs/assets/lantern-demo.gif until a real screen recording replaces it."""
+"""Build docs/assets/lro-demo.gif until a real screen recording replaces it."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 W, H = 960, 540
 FRAMES = 48
-OUT = Path(__file__).resolve().parent.parent / "docs" / "assets" / "lantern-demo.gif"
+OUT = Path(__file__).resolve().parent.parent / "docs" / "assets" / "lro-demo.gif"
 
 BG = (16, 18, 22)
 CARD = (24, 27, 33)
@@ -47,7 +47,7 @@ def draw_frame(t: int) -> Image.Image:
 
     d.rectangle([0, 0, W, 52], fill=CARD)
     d.ellipse([18, 16, 34, 32], fill=ACCENT)
-    d.text((42, 14), "Lantern", fill=FG, font=title)
+    d.text((42, 14), "Local Recruiting Ops", fill=FG, font=title)
     for i, tab in enumerate(["Brief", "Matches", "History", "Settings"]):
         x = 140 + i * 96
         colour = ACCENT if tab == "Brief" else MUTED
@@ -79,7 +79,7 @@ def draw_frame(t: int) -> Image.Image:
     d.text((W // 2 - 170, H // 2 - 36), "Placeholder demo recording", fill=FG, font=title)
     d.text((W // 2 - 210, H // 2 - 4), "Replace with a screen capture of:", fill=MUTED, font=body)
     d.text((W // 2 - 198, H // 2 + 24), "Settings -> Run Pipeline -> Matches tab", fill=hint, font=body)
-    d.text((W // 2 - 176, H // 2 + 52), "docs/assets/lantern-demo.gif", fill=MUTED, font=small)
+    d.text((W // 2 - 176, H // 2 + 52), "docs/assets/lro-demo.gif", fill=MUTED, font=small)
     return img
 
 
