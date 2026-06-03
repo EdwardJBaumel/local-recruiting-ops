@@ -2,7 +2,9 @@
 
 Scrapes public job feeds, scores roles against your resume, flags ghost jobs — all on your machine, no API costs.
 
-![Local Recruiting Ops dashboard demo](docs/assets/lro-demo.gif)
+![Brief tab — market metrics and last cycle funnel](docs/assets/lro-demo-brief.gif)
+
+![Settings tab — local résumé parse and pipeline run](docs/assets/lro-demo-settings.gif)
 
 **[Live site](https://edwardjbaumel.github.io/local-recruiting-ops/)** · [Setup](SETUP.md) · [Changelog](CHANGELOG.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
 
@@ -17,9 +19,7 @@ Each cycle ingests public ATS feeds, scores survivors against your resume and ca
 3. **Flags ghosts** — nine explainable signals, not a black-box score
 4. **Analyses** the top **8** matches with a local LLM (one-sentence fit/gap)
 
-Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (scored list), **History** (cycle timeline), **Settings**.
-
-*Replace `docs/assets/lro-demo.gif` with a real screen recording when you have one.*
+Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (scored list), **History** (cycle timeline), **Settings** (résumé upload, models, run pipeline).
 
 ---
 

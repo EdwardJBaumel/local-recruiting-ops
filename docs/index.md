@@ -13,9 +13,9 @@ Local-first recruiting ops: scrape public ATS feeds, score roles against your re
 
 ## Demo
 
-![Local Recruiting Ops dashboard — placeholder until you drop in a real screen recording](assets/lro-demo.gif)
+![Brief tab — market metrics and last cycle funnel](assets/lro-demo-brief.gif)
 
-*Animated placeholder.* Record **Settings → Run Pipeline → Matches** locally, then replace [`docs/assets/lro-demo.gif`](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/docs/assets/lro-demo.gif) (ScreenToGif, OBS or Win+G). Re-run `python scripts/generate-demo-placeholder.py` only if you need to reset the placeholder.
+![Settings tab — local résumé parse and pipeline run](assets/lro-demo-settings.gif)
 
 ---
 
