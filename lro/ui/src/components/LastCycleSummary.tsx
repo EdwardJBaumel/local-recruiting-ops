@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useStatus } from "@/hooks/useStatus";
 import type { LastCycleStats } from "@/types/status";
+import { mergeFunnelStats } from "@/lib/cycleDisplay";
 import { Loader2 } from "lucide-react";
 
 /**
@@ -16,22 +17,12 @@ export function LastCycleSummary() {
   const status = useStatus();
   const s = status.data;
   const inProgress = !!s?.cycle_in_progress;
-  const last = s?.last_cycle;
-  const liveCounts = inProgress ? s?.progress?.counts : undefined;
   const stage = s?.progress?.stage_label;
-
-  const stats: LastCycleStats | null = inProgress && liveCounts
-    ? {
-        cycle: s?.progress ? undefined : last?.cycle,
-        ingested: num(liveCounts.ingested) ?? last?.ingested,
-        parsed: num(liveCounts.parsed) ?? last?.parsed,
-        qa_pass: num(liveCounts.qa_pass) ?? last?.qa_pass,
-        fake_blocked: num(liveCounts.fake_blocked) ?? last?.fake_blocked,
-        new_jobs: num(liveCounts.new_jobs) ?? last?.new_jobs,
-        matches: num(liveCounts.matches) ?? last?.matches,
-        fit_gaps: num(liveCounts.fit_gaps) ?? last?.fit_gaps,
-      }
-    : last ?? null;
+  const { stats, showingLive } = mergeFunnelStats(
+    inProgress,
+    s?.progress?.counts,
+    s?.last_cycle,
+  );
 
   const rows = buildSummaryRows(stats);
 
@@ -42,9 +33,11 @@ export function LastCycleSummary() {
           <div>
             <CardTitle className="text-base">Last cycle</CardTitle>
             <CardDescription>
-              {inProgress
+              {inProgress && showingLive
                 ? "Live counts while the pipeline runs"
-                : stats?.cycle != null
+                : inProgress
+                  ? "Previous cycle until ingest starts"
+                  : stats?.cycle != null
                   ? `Cycle #${stats.cycle} · what changed on the last run`
                   : "Run a cycle to see fetch → match → analyse counts"}
             </CardDescription>
@@ -153,10 +146,6 @@ function buildSummaryRows(stats: LastCycleStats | null | undefined): SummaryRow[
 
 function fmt(n: number | undefined): string {
   return n != null ? String(n) : "—";
-}
-
-function num(v: unknown): number | undefined {
-  return typeof v === "number" ? v : undefined;
 }
 
 function formatDuration(seconds: number | null | undefined): string {

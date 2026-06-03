@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCycleHistory } from "@/hooks/useCycleHistory";
 import { useLogs } from "@/hooks/useLogs";
 import { useStatus } from "@/hooks/useStatus";
+import { displayPath, sanitiseLogLines } from "@/lib/displayPath";
 
 export function History() {
   const history = useCycleHistory(500);
@@ -27,36 +28,6 @@ export function History() {
           Cycle timeline from <span className="font-mono">cycle_times.json</span> and live pipeline log tail.
         </p>
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Pipeline log</CardTitle>
-              <CardDescription>
-                {logs.data?.exists
-                  ? `Tail of ${logs.data.path}`
-                  : "Log file not found yet — run a cycle to create logs/lro.log"}
-              </CardDescription>
-            </div>
-            {status.data?.cycle_in_progress && (
-              <Badge variant="secondary">{status.data.progress?.stage_label ?? "Running"}</Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {logs.isError ? (
-            <p className="text-sm text-destructive">{logs.error.message}</p>
-          ) : !logs.data?.exists ? (
-            <p className="text-sm text-muted-foreground">No log output yet.</p>
-          ) : (
-            <pre className="max-h-72 overflow-auto rounded-md border bg-secondary/30 p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
-              {(logs.data.lines ?? []).join("\n")}
-              <div ref={logEndRef} />
-            </pre>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -107,6 +78,36 @@ export function History() {
                 </tbody>
               </table>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Pipeline log</CardTitle>
+              <CardDescription>
+                {logs.data?.exists
+                  ? `Tail of ${displayPath(logs.data.path)}`
+                  : "Log file not found yet — run a cycle to create logs/lro.log"}
+              </CardDescription>
+            </div>
+            {status.data?.cycle_in_progress && (
+              <Badge variant="secondary">{status.data.progress?.stage_label ?? "Running"}</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {logs.isError ? (
+            <p className="text-sm text-destructive">{logs.error.message}</p>
+          ) : !logs.data?.exists ? (
+            <p className="text-sm text-muted-foreground">No log output yet.</p>
+          ) : (
+            <pre className="max-h-72 overflow-auto rounded-md border bg-secondary/30 p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
+              {sanitiseLogLines(logs.data.lines ?? []).join("\n")}
+              <div ref={logEndRef} />
+            </pre>
           )}
         </CardContent>
       </Card>

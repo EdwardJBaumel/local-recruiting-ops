@@ -10,6 +10,7 @@ import { SkillGap } from "@/components/SkillGap";
 import { LastCycleSummary } from "@/components/LastCycleSummary";
 import type { MatchPayload } from "@/types/match";
 import type { GhostRatePoint, SalaryBucket } from "@/components/BriefCharts";
+import { matchRateDisplay } from "@/lib/cycleDisplay";
 
 // Recharts is ~90 KB gzipped (d3-scale + d3-shape + friends). We
 // only need it on the Brief tab, so we code-split it. After Vite
@@ -336,30 +337,24 @@ function MetricStrip() {
     return Math.round((suspect / rows.length) * 100);
   })();
 
-  // Match rate — share of fetched postings that passed the score
-  // threshold on the last run (matches / ingested). More useful than
-  // per-row embedding latency for day-to-day job search.
-  const matchRate = (() => {
-    const inProgress = !!s?.cycle_in_progress;
-    const ingested = inProgress
-      ? num(s?.progress?.counts?.ingested)
-      : s?.last_cycle?.ingested;
-    const matched = inProgress
-      ? num(s?.progress?.counts?.matches)
-      : s?.last_cycle?.matches;
-    if (ingested == null || matched == null || ingested <= 0) return null;
-    return {
-      pct: Math.round((matched / ingested) * 100),
-      matched,
-      ingested,
-      live: inProgress,
-    };
-  })();
+  // Match rate — keep last cycle until this run has ingest > 0 (counts
+  // reset to zero the moment you click Run Pipeline).
+  const matchRate = matchRateDisplay(
+    !!s?.cycle_in_progress,
+    s?.progress?.counts,
+    s?.last_cycle,
+  );
 
+  // Registry volume first, then lifetime cycles, then quality, then timing.
   const tiles: { label: string; value: string; hint?: string }[] = [
     {
       label: "Matches in registry",
       value: s?.matches_count != null ? String(s.matches_count) : "—",
+    },
+    {
+      label: "Cycles run",
+      value: s?.cycles_recorded != null ? String(s.cycles_recorded) : "—",
+      hint: "All-time pipeline runs",
     },
     {
       label: "Match rate",
@@ -372,10 +367,6 @@ function MetricStrip() {
       label: "Ghost rate",
       value: ghostRate != null ? `${ghostRate}%` : "—",
       hint: "Flagged suspect",
-    },
-    {
-      label: "Cycles run",
-      value: s?.cycles_recorded != null ? String(s.cycles_recorded) : "—",
     },
     {
       label: "Avg scrape",
@@ -429,10 +420,6 @@ function formatDuration(seconds: number | null | undefined): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return `${h}h ${m}m`;
-}
-
-function num(v: unknown): number | undefined {
-  return typeof v === "number" ? v : undefined;
 }
 
 function FallbackBanner() {
