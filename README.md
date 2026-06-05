@@ -26,7 +26,7 @@ Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (
 ## Requirements
 
 - Python 3.11+, Node 18+, [Ollama](https://ollama.com/download)
-- GPU optional but strongly recommended — match phase is ~1 min on GPU vs ~80 min on CPU
+- GPU optional but strongly recommended. Match phase is ~1 min on GPU vs ~80 min on CPU
 
 ---
 
