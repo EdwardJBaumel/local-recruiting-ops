@@ -1,6 +1,6 @@
 # Local Recruiting Ops
 
-Scrapes public job feeds, scores roles against your resume, flags ghost jobs — all on your machine, no API costs.
+Scrapes public job feeds, scores roles against your resume, flags ghost jobs, all on your machine, no API costs.
 
 ![Brief tab — market metrics and last cycle funnel](docs/assets/lro-demo-brief.gif)
 
