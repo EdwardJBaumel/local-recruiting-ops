@@ -2,10 +2,6 @@
 
 Scrapes public job feeds, scores roles against your resume, flags ghost jobs, all on your machine, no API costs.
 
-![Brief tab — market metrics and last cycle funnel](docs/assets/lro-demo-brief.gif)
-
-![Settings tab — local résumé parse and pipeline run](docs/assets/lro-demo-settings.gif)
-
 **[Live site](https://edwardjbaumel.github.io/local-recruiting-ops/)** · [Setup](SETUP.md) · [Changelog](CHANGELOG.md) · [Troubleshooting](TROUBLESHOOTING.md) · MIT License
 
 ---
@@ -18,6 +14,8 @@ Each cycle ingests public ATS feeds, scores survivors against your resume and ca
 2. **Scores** with `BAAI/bge-m3` embeddings + hard filters + ghost fold
 3. **Flags ghosts** nine explainable signals, not a black-box score
 4. **Analyses** the top **8** matches with a local LLM (one-sentence fit/gap)
+
+![Brief tab — market metrics and last cycle funnel](docs/assets/lro-demo-brief.gif)
 
 Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (scored list), **History** (cycle timeline), **Settings** (résumé upload, models, run pipeline).
 
@@ -53,6 +51,8 @@ The embedding model (`bge-m3`) uses 2.3 GB VRAM on its own, so pick based on wha
 ```bash
 ollama pull qwen3:4b    # swap for whichever row fits your machine
 ```
+![Settings tab — local résumé parse and pipeline run](docs/assets/lro-demo-settings.gif)
+
 
 **3. Launch**
 
