@@ -14,9 +14,9 @@ Scrapes public job feeds, scores roles against your resume, flags ghost jobs, al
 
 Each cycle ingests public ATS feeds, scores survivors against your resume and caps the Matches tab at **80** rows:
 
-1. **Ingests** Greenhouse, Lever, Ashby + Amazon, Workday, RemoteOK, Jobicy (Google optional — off by default)
+1. **Ingests** Greenhouse, Lever, Ashby + Amazon, Workday, RemoteOK, Jobicy (Google optional, off by default)
 2. **Scores** with `BAAI/bge-m3` embeddings + hard filters + ghost fold
-3. **Flags ghosts** — nine explainable signals, not a black-box score
+3. **Flags ghosts** nine explainable signals, not a black-box score
 4. **Analyses** the top **8** matches with a local LLM (one-sentence fit/gap)
 
 Results live in a four-tab dashboard: **Brief** (market overview), **Matches** (scored list), **History** (cycle timeline), **Settings** (résumé upload, models, run pipeline).
@@ -59,7 +59,7 @@ ollama pull qwen3:4b    # swap for whichever row fits your machine
 Windows: `.\start.ps1`  
 macOS / Linux: `./start.sh`
 
-The launcher handles everything — venv, deps, config, UI build, starting Ollama, opening the browser. **First run takes ~10–20 min.**
+The launcher handles everything: venv, deps, config, UI build, starting Ollama, opening the browser. **First run takes ~10–20 min.**
 
 **4. Upload your resume and run**
 
