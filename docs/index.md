@@ -41,11 +41,7 @@ Dashboard tabs: **Brief** (market + funnel), **Matches** (scored list), **Histor
 Requires Python 3.11+, Node 18+, [Ollama](https://ollama.com/download) and a GPU for sensible cycle times.
 
 ```powershell
-<<<<<<< HEAD
-git clone https://github.com/EdwardJBaumel/local-recruiting-ops.git
-=======
-git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
-cd lro
+git clone https://github.com/edwardjbaumel/local-recruiting-ops.git`ncd lro
 .\start.ps1
 ```
 
