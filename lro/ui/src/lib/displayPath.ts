@@ -10,7 +10,8 @@ export function displayPath(path: string | undefined | null): string {
   const markers = [
     "/dev/projects/",
     "/local-recruiting-ops/",
-    "/lro/",`n    "/lantern/",
+    "/lro/",
+    "/lantern/",
     "/AI_recruiter/",
   ];
   const lower = normalised.toLowerCase();

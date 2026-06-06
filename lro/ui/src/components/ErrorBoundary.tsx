@@ -36,7 +36,6 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Log to console so DevTools can show the full stack — the
     // rendered card only shows the user-friendly summary.
-    // eslint-disable-next-line no-console
     console.error("[ErrorBoundary] Caught render error:", error, info);
   }
 

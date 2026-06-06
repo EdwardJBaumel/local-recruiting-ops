@@ -49,7 +49,6 @@ export default defineConfig({
           proxy.on("error", (err) => {
             if (withinBootGrace()) {
               if (!bootNoticeShown) {
-                // eslint-disable-next-line no-console
                 console.log(
                   "[proxy] waiting for the backend to finish starting…",
                 );
@@ -57,7 +56,6 @@ export default defineConfig({
               }
               return;
             }
-            // eslint-disable-next-line no-console
             console.warn("[proxy] backend unreachable:", err.message);
           });
         },

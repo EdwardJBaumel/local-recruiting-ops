@@ -115,6 +115,21 @@ $env:LRO_DEV_UI = "1"; .\start.ps1
 
 The dev server is set to `strictPort: true` on 3000 so a port conflict surfaces immediately rather than silently moving you to 3001.
 
+## Naming conventions
+
+Enforced by `npm run lint` (`@typescript-eslint/naming-convention` + `unicorn/filename-case`):
+
+| Surface | Case | Examples |
+|---|---|---|
+| Component/view files | PascalCase | `MatchTable.tsx`, `Brief.tsx` |
+| shadcn primitives (`components/ui/`) | camelCase filenames | `button.tsx`, `badge.tsx` |
+| hooks, lib, api, stores, types | camelCase filenames | `useMatches.ts`, `rowKey.ts` |
+| React components (functions) | PascalCase | `function MatchDetail()` |
+| Module constants | UPPER_SNAKE | `DEFAULT_MATCH_FILTERS` |
+| API wire fields (types + POST bodies) | snake_case | `content_base64`, `role_keywords` |
+
+Config entrypoints (`main.tsx`, `App.tsx`, `*.config.ts`) and test files are exempt from filename rules.
+
 ## Build
 
 ```bash

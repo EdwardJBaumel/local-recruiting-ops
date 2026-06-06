@@ -56,13 +56,13 @@ export function useUploadResume() {
   const qc = useQueryClient();
   return useMutation<unknown, Error, File>({
     mutationFn: async (file) => {
-      const content_base64 = await fileToBase64(file);
+      const contentBase64 = await fileToBase64(file);
       // Backend contract: POST /api/resume expects
       // { filename: string, content_base64: string }.
       // Returns { ok: true, metadata: {...} } on success.
       return api.post("/resume", {
         filename: file.name,
-        content_base64,
+        content_base64: contentBase64,
       });
     },
     onSuccess: () => {

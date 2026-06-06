@@ -50,17 +50,19 @@ export function CompaniesSection() {
     const cleanSlug = slug.trim().toLowerCase();
     if (!cleanSlug) return;
     const cleanDisplay = display.trim() || cleanSlug;
-    let patch: Parameters<typeof save.mutate>[0] = {};
-    if (kind === "greenhouse") {
-      if (greenhouse.includes(cleanSlug)) return; // already there
-      patch = { ingest: { greenhouse_companies: [...greenhouse, cleanSlug] } };
-    } else if (kind === "lever") {
-      if (lever.includes(cleanSlug)) return;
-      patch = { ingest: { lever_companies: [...lever, cleanSlug] } };
-    } else {
-      if (ashby.some(([, s]) => s === cleanSlug)) return;
-      patch = { ingest: { ashby_companies: [...ashby, [cleanDisplay, cleanSlug]] } };
-    }
+    const patch: Parameters<typeof save.mutate>[0] =
+      kind === "greenhouse"
+        ? greenhouse.includes(cleanSlug)
+          ? null
+          : { ingest: { greenhouse_companies: [...greenhouse, cleanSlug] } }
+        : kind === "lever"
+          ? lever.includes(cleanSlug)
+            ? null
+            : { ingest: { lever_companies: [...lever, cleanSlug] } }
+          : ashby.some(([, s]) => s === cleanSlug)
+            ? null
+            : { ingest: { ashby_companies: [...ashby, [cleanDisplay, cleanSlug]] } };
+    if (!patch) return;
     save.mutate(patch, {
       onSuccess: () => {
         setSlug("");
@@ -71,14 +73,12 @@ export function CompaniesSection() {
   };
 
   const onRemove = async (removeKind: "greenhouse" | "lever" | "ashby", removeSlug: string) => {
-    let patch: Parameters<typeof save.mutate>[0] = {};
-    if (removeKind === "greenhouse") {
-      patch = { ingest: { greenhouse_companies: greenhouse.filter((s) => s !== removeSlug) } };
-    } else if (removeKind === "lever") {
-      patch = { ingest: { lever_companies: lever.filter((s) => s !== removeSlug) } };
-    } else {
-      patch = { ingest: { ashby_companies: ashby.filter(([, s]) => s !== removeSlug) } };
-    }
+    const patch: Parameters<typeof save.mutate>[0] =
+      removeKind === "greenhouse"
+        ? { ingest: { greenhouse_companies: greenhouse.filter((s) => s !== removeSlug) } }
+        : removeKind === "lever"
+          ? { ingest: { lever_companies: lever.filter((s) => s !== removeSlug) } }
+          : { ingest: { ashby_companies: ashby.filter(([, s]) => s !== removeSlug) } };
     save.mutate(patch);
   };
 
