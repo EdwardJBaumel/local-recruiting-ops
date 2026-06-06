@@ -7,7 +7,7 @@ description: Local-first recruiting ops — embeddings, ghost detection, zero AP
 
 Local-first recruiting ops: scrape public ATS feeds, score roles against your resume with embeddings, flag ghost jobs — all on your machine via Ollama.
 
-**[GitHub](https://github.com/EdwardJBaumel/local-recruiting-ops)** · **[Setup](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/SETUP.md)** · **[Changelog](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/CHANGELOG.md)** · **v1.2.0**
+**[GitHub](https://github.com/edwardjbaumel/local-recruiting-ops)** · **[Setup](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/SETUP.md)** · **[Changelog](https://github.com/edwardjbaumel/local-recruiting-ops/blob/master/CHANGELOG.md)** · **v1.2.0**
 
 ---
 
@@ -41,7 +41,10 @@ Dashboard tabs: **Brief** (market + funnel), **Matches** (scored list), **Histor
 Requires Python 3.11+, Node 18+, [Ollama](https://ollama.com/download) and a GPU for sensible cycle times.
 
 ```powershell
+<<<<<<< HEAD
 git clone https://github.com/EdwardJBaumel/local-recruiting-ops.git
+=======
+git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
 cd lro
 .\start.ps1
 ```
