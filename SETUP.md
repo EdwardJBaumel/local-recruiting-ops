@@ -26,7 +26,7 @@ If something goes wrong, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ```bash
 git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
-cd lro
+cd local-recruiting-ops
 ```
 
 **Check:** `ls` shows `lro/`, `archive/`, `start.ps1`, `start.sh`, `README.md`.
