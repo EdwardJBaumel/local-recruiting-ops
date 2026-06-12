@@ -1,0 +1,16 @@
+---
+description: Ollama model picks must be evidence-backed
+alwaysApply: true
+---
+
+# Model selection
+
+Do not change default Ollama tags in `config.example.json` or README model tables from vibes or leaderboard posts.
+
+When the user asks which model to use:
+
+1. Point at the **Recommended per-task picks** table in README (from `scripts/benchmark_models.py`).
+2. Offer to re-run `python scripts/benchmark_models.py` on their GPU — Ollama must be idle (no other model loaded in VRAM).
+3. Map stages: parse → JSON extract; analyse → structured reasoning; digest/cover → prose.
+
+Never mention legacy codenames (Lantern, etc.) in user-facing copy or commit messages.

@@ -182,6 +182,8 @@ If only `qwen3:8b` is installed, set all tasks to `qwen3:8b`. Every stage will r
 
 The panel also shows `ollama pull <model>` commands for any suggested model not yet installed.
 
+**Empirical picks (16 GB GPU):** see the table in [README.md](README.md#recommended-per-task-picks-benchmarked-on-rtx-5070-ti). Re-measure on your machine with `python scripts/benchmark_models.py` (Ollama must be running; takes ~15–30 min depending on models pulled).
+
 ### Save
 
 One **Save** button at the bottom commits everything in a single round-trip.

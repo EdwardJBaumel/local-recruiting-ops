@@ -38,6 +38,7 @@ lro/ui/      React frontend
 archive/         Frozen Sentinel v1 — reference only, do not port backward
 start.ps1        Windows dev launcher
 scripts/         verify-canonical-repo.ps1 — fail fast if wrong folder
+                 benchmark_models.py — optional Ollama A/B for model picks (see README)
 ```
 
 ## Canonical workspace (avoid duplicate copies)

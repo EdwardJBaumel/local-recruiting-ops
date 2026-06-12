@@ -12,6 +12,8 @@
 #   - Installs lro/api/requirements.txt
 #   - Seeds lro/api/config.json from lro/api/config.example.json
 #   - Installs lro/ui/node_modules via `npm install`
+#
+# Per-task Ollama picks: README table; re-measure with scripts/benchmark_models.py
 
 set -euo pipefail
 

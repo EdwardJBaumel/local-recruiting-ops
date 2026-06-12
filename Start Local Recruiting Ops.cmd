@@ -4,8 +4,8 @@ REM  LRO - double-click launcher.
 REM
 REM  Hands off to start.ps1 which uses the local venv to run Local Recruiting Ops on
 REM  one visible URL (:8099). Make sure Ollama
-REM  is running (ollama serve) with qwen3:14b, qwen3:8b, gemma3:12b,
-REM  and phi4-reasoning:14b pulled.
+REM  is running (ollama serve). Pull at least qwen3:8b; see README for
+REM  per-task picks (benchmark: scripts\benchmark_models.py).
 REM
 REM  Previous-generation launcher (Sentinel) lives at
 REM  archive\Start SENTINEL.cmd if you need it.

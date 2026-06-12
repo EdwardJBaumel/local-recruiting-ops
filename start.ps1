@@ -16,6 +16,7 @@
 #
 # The previous-generation Sentinel launcher lives at
 # `archive/start-sentinel.ps1` if you ever need to compare behaviour.
+# Per-task Ollama picks: README table; re-measure with scripts/benchmark_models.py
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path

@@ -118,6 +118,8 @@ ollama pull qwen3:8b
 
 Default config expects **`qwen3:8b`** (parse, analyse) and optionally **`qwen3:14b`** (digest, cover letter). See [SETUP → Ollama models](SETUP.md#3-ollama-models).
 
+**Choosing models on 16 GB VRAM:** README lists per-task picks from `scripts/benchmark_models.py`. Run that script when changing GPU or after pulling new tags — do not guess from leaderboard hype.
+
 ### "Missing qwen3:8b" on launch but I already pulled it
 
 **Symptom:** `start.ps1` prints `Ollama is up but missing: qwen3:8b` and pulls again, even though you see a manifest under a custom `.ollama\models` path.

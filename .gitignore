@@ -112,3 +112,6 @@ credentials.json
 *.bak
 *.bak-*
 .pytest_cache/
+
+# Ad-hoc benchmark reruns (committed: scripts/benchmark_results.json)
+scripts/benchmark_run_*.json

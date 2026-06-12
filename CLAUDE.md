@@ -9,6 +9,7 @@ Local-first job-intelligence system. Python backend on port 8099, Vite + React +
 - Launchers: `start.ps1` / `start.sh`, `Start Local Recruiting Ops.cmd`
 - Frozen v1 reference: `archive/sentinel/` and `archive/sentinel-ui/` (do not extend)
 - Data: `lro/api/data/` — match registry, decisions, resume, market intel (gitignored)
+- Model benchmarks: `scripts/benchmark_models.py` + README per-task table
 
 ## User preferences
 

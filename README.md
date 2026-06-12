@@ -37,20 +37,40 @@ git clone https://github.com/edwardjbaumel/local-recruiting-ops.git
 cd local-recruiting-ops
 ```
 
-**2. Pull a model**
+**2. Pull models**
 
-The embedding model (`bge-m3`) uses 2.3 GB VRAM on its own, so pick based on what's left:
+The embedding model (`bge-m3`) uses ~2.3 GB VRAM. LRO loads one LLM at a time per stage, so you do not need every model resident at once.
 
-| VRAM | Model | Disk |
+| VRAM | Pull | Disk |
 |---|---|---|
-| No GPU | `qwen3:4b` | 2.5 GB — works, slower cycles |
-| 6 GB or 8 GB unified (Mac M1/M2 base) | `qwen3:4b` | 2.5 GB |
-| 8 GB dedicated or 16 GB+ unified | `qwen3:8b` | 5 GB |
-| 16 GB+ | `qwen3:8b` + `qwen3:14b` |~14 GB — best quality |
+| No GPU / 6–8 GB | `qwen3:4b` | ~2.5 GB — works, slow cycles |
+| 8 GB dedicated | `qwen3:8b` | ~5 GB — minimum for parse + analyse |
+| **16 GB (e.g. RTX 5070 Ti)** | `qwen3:8b` + `qwen3:14b` + `gemma4:e4b` | ~24 GB on disk — **recommended** |
+| 24 GB+ | add `gemma4:26b` or `gemma4:31b` | 18–20 GB each — marginal gain on LRO tasks |
 
 ```bash
-ollama pull qwen3:4b    # swap for whichever row fits your machine
+ollama pull qwen3:8b
+ollama pull qwen3:14b
+ollama pull gemma4:e4b
 ```
+
+### Recommended per-task picks (benchmarked on RTX 5070 Ti)
+
+Measured with `scripts/benchmark_models.py` on LRO's real parse / analyse / digest / cover prompts. Latency outliers from concurrent GPU use were stripped.
+
+| Task | Model | Why |
+|---|---|---|
+| **Parse** (~60 calls/cycle) | `qwen3:8b` or `gemma4:e4b` | Both 100% JSON; qwen ~6.7 s, gemma ~1.4 s per card |
+| **Analyse** (top 8) | `qwen3:14b` | 100% JSON, fewest tokens; qwen3:8b works but slower |
+| **Digest** | `qwen3:14b` or `gemma4:e4b` | Best prose structure in bench |
+| **Cover letter** | `deepseek-r1:8b` or `gemma4:e4b` | Highest prose quality score |
+
+**Not recommended:** `deepseek-r1:8b` for parse (thinking trace breaks JSON), `gemma4:12b` for parse (0% JSON in bench).
+
+**`gemma4:31b` on 16 GB:** runnable but impractical — loads ~14.5 GB VRAM and parse/analyse ran **3–4 min per call** vs **~7–10 s** for `qwen3:14b`. Reserve it for 24 GB+ cards or use `gemma4:26b` MoE (18 GB disk, ~4B active) instead.
+
+Re-run benchmarks: `python scripts/benchmark_models.py`
+
 ![Settings tab — local résumé parse and pipeline run](docs/assets/lro-demo-settings.gif)
 
 
@@ -75,7 +95,7 @@ Full walkthrough: [SETUP.md](SETUP.md)
 |---|---|
 | Frontend | Vite · React 18 · TypeScript · Tailwind · shadcn/ui |
 | Backend | Python · threaded orchestrator |
-| LLMs | Ollama (`qwen3:8b`, `qwen3:14b`) |
+| LLMs | Ollama — see **Recommended per-task picks** above |
 | Embeddings | sentence-transformers · `BAAI/bge-m3` |
 | Tests | pytest (223) · vitest · GitHub Actions CI |
 

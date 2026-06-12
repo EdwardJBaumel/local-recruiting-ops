@@ -4,6 +4,14 @@ All notable changes to Local Recruiting Ops are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **`scripts/benchmark_models.py`** — measures parse, analyse, digest, and cover-letter stages across Ollama tags on your GPU; writes `benchmark_results.json`
+- **`scripts/sanitize_benchmark.py`** — strips latency outliers when another model was loaded during a run
+- **README model table** — per-task picks benchmarked on RTX 5070 Ti (16 GB)
+
 ## [1.2.0] — 2026-05-26
 
 Lean match path and faster cycles: skip dead LLM work when Ollama models are missing, cap the Matches tab at 80 rows, and keep Google off by default.
